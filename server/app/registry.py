@@ -89,7 +89,7 @@ class Registry:
         for t in dead:
             del self.trains[t]
 
-    def snapshot(self, ref: Reference, now: float | None = None) -> list[TrainPosition]:
+    def snapshot(self, ref: Reference, track=None, now: float | None = None) -> list[TrainPosition]:
         now = time.time() if now is None else now
         out: list[TrainPosition] = []
         for train_id, obs in self.trains.items():
@@ -105,21 +105,27 @@ class Registry:
             nxt = ref.stations.get(next_stop)
             if nxt is None:
                 continue
-            pos = self._place(train_id, obs, next_stop, eta_next, ahead, ref, nxt)
+            pos = self._place(train_id, obs, next_stop, eta_next, ahead, ref, nxt, track)
             if pos is not None:
                 out.append(pos)
         return out
 
-    def _place(self, train_id, obs, next_stop, eta_next, ahead, ref, nxt) -> TrainPosition | None:
+    def _place(self, train_id, obs, next_stop, eta_next, ahead, ref, nxt, track) -> TrainPosition | None:
         prev_id = self._pred.get(obs.destino, {}).get(next_stop)
         prev = ref.stations.get(prev_id) if prev_id else None
 
         if prev is not None:
             seg_t = self._segment.get((obs.destino, prev_id, next_stop), settings.default_segment_seconds)
             progress = max(0.0, min(1.0, 1.0 - eta_next / seg_t)) if seg_t > 0 else 0.0
-            lat, lon = geo.interpolate(prev.lat, prev.lon, nxt.lat, nxt.lon, progress)
-            bearing = geo.bearing_deg(prev.lat, prev.lon, nxt.lat, nxt.lon)
-            dist = geo.haversine_m(prev.lat, prev.lon, nxt.lat, nxt.lon)
+            geom = track.segment_point(
+                obs.line, prev_id, (prev.lat, prev.lon), next_stop, (nxt.lat, nxt.lon), progress
+            ) if track else None
+            if geom is not None:
+                lat, lon, bearing, dist = geom
+            else:
+                lat, lon = geo.interpolate(prev.lat, prev.lon, nxt.lat, nxt.lon, progress)
+                bearing = geo.bearing_deg(prev.lat, prev.lon, nxt.lat, nxt.lon)
+                dist = geo.haversine_m(prev.lat, prev.lon, nxt.lat, nxt.lon)
             speed = dist / seg_t if seg_t > 0 else 0.0
         else:
             # unknown predecessor (train near terminus / sparse topology): sit at next

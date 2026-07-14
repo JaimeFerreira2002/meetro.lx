@@ -34,9 +34,9 @@ docker build -t metro-ar-server . && docker run --env-file .env -p 8000:8000 met
 
 ## v0 limitations (tracked for later)
 
-- **Geometry is straight-line between stations** (`app/geo.py`) — trains cut corners.
-  Swap `interpolate` for arc-length along baked OSM polylines in `data/`; the call site
-  in `registry.py` is unchanged.
+- **Geometry:** trains now follow the real curved track via arc-length interpolation
+  along baked OSM polylines (`app/track.py`, `data/track_geometry.geojson`). `app/geo.py`
+  straight-line interpolation remains the fallback when a line's geometry is missing.
 - **Topology (station-behind) is learned from the feed**, so a train can briefly sit at
   its next station until a train behind it reveals the predecessor. A static per-line
   ordering in `data/` would remove the warm-up.

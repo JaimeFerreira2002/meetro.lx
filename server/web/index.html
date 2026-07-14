@@ -27,6 +27,13 @@
       attribution: "© OpenStreetMap", maxZoom: 19,
     }).addTo(map);
 
+    // Track polylines (curved OSM geometry)
+    fetch("/track").then(r => r.json()).then(gj => {
+      L.geoJSON(gj, {
+        style: f => ({ color: f.properties.colour || "#888", weight: 3, opacity: .55 }),
+      }).addTo(map);
+    });
+
     // Static stations
     fetch("/stations").then(r => r.json()).then(list => {
       list.forEach(s => {
