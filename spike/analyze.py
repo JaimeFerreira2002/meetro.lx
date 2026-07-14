@@ -20,8 +20,11 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-# Field names expected from the API; the parser tolerates absences and reports
-# the actual schema it saw, since official docs don't publish the response model.
+# Confirmed schema (2026-07-14, live): each platform entry has
+#   stop_id, cais, hora (YYYYMMDDhhmmss), destino, sairServico, and up to three
+#   upcoming trains: comboio/tempoChegada1, comboio2/tempoChegada2, comboio3/tempoChegada3.
+# tempoChegada is SECONDS to arrival; empty slots come through as "--".
+# Extra fallbacks kept in case the response model shifts.
 TRAIN_KEYS = [("comboio", "tempoChegada1"), ("comboio2", "tempoChegada2"), ("comboio3", "tempoChegada3")]
 STATION_KEYS = ["stop_id", "estacao", "station"]
 
