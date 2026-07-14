@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Captured spike data (large JSONL logs)
+spike/captures/
+
+# macOS
+.DS_Store
+
+# Unity (app/) — expanded when the Unity project lands
+app/Library/
+app/Temp/
+app/Logs/
+app/obj/
+app/Build/
+app/UserSettings/
