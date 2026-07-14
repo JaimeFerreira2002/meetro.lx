@@ -105,6 +105,7 @@ class _MapScreenState extends State<MapScreen> {
   List<LineStatus> _lines = [];
   LatLng? _userLocation;
   Station? _selectedStation;
+  String? _followTrainId; // camera auto-follows this train
   Timer? _linesTimer;
 
   @override
@@ -112,10 +113,30 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     _api.track().then((t) => setState(() => _track = t));
     _api.stations().then((s) => setState(() => _stations = s));
-    _api.trainStream().listen((t) => setState(() => _trains = t));
+    _api.trainStream().listen(_onTrains);
     _refreshLines();
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
     _requestLocationPermission();
+  }
+
+  void _onTrains(List<TrainPosition> t) {
+    setState(() => _trains = t);
+    // keep the camera centered on the followed train as it moves
+    final id = _followTrainId;
+    if (id != null) {
+      final match = t.where((x) => x.trainId == id);
+      if (match.isNotEmpty) {
+        _mapController.move(match.first.pos, _mapController.camera.zoom);
+      }
+    }
+  }
+
+  void _followTrain(TrainPosition t) {
+    setState(() {
+      _followTrainId = t.trainId;
+      _selectedStation = null;
+    });
+    _mapController.move(t.pos, 15);
   }
 
   Future<void> _refreshLines() async {
@@ -247,19 +268,28 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // Panels — station details takes priority over the nav panels
-          if (_selectedStation != null)
-            _panelShell(StationDetailsPanel(
-              api: _api,
-              station: _selectedStation!,
-              onClose: () => setState(() => _selectedStation = null),
-            ))
-          else if (_tab == 1)
-            _panelShell(StationsList(api: _api, stations: _stations))
-          else if (_tab == 2)
-            _panelShell(SingleChildScrollView(child: _infoContent()))
-          else if (_tab == 3)
-            _panelShell(SingleChildScrollView(child: _settingsContent())),
+          // Animated panels (slide up + fade between states)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(
+                      position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
+                      child: child,
+                    ),
+                  ),
+                  child: _panelContent(),
+                ),
+              ),
+            ),
+          ),
 
           _navBar(),
         ],
@@ -269,18 +299,102 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---- panels ----
 
-  Widget _panelShell(Widget child) {
-    return SafeArea(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-            child: GlassPanel(child: child),
-          ),
-        ),
+  Widget _panelContent() {
+    final Widget? inner;
+    final Key key;
+    if (_followTrainId != null) {
+      inner = _followContent();
+      key = const ValueKey('follow');
+    } else if (_selectedStation != null) {
+      inner = StationDetailsPanel(
+        api: _api,
+        station: _selectedStation!,
+        onClose: () => setState(() => _selectedStation = null),
+      );
+      key = const ValueKey('station');
+    } else if (_tab == 1) {
+      inner = StationsList(api: _api, stations: _stations);
+      key = const ValueKey('stations');
+    } else if (_tab == 2) {
+      inner = SingleChildScrollView(child: _infoContent());
+      key = const ValueKey('info');
+    } else if (_tab == 3) {
+      inner = SingleChildScrollView(child: _settingsContent());
+      key = const ValueKey('settings');
+    } else {
+      return const SizedBox.shrink(key: ValueKey('none'));
+    }
+    return ConstrainedBox(
+      key: key,
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+      child: GlassPanel(child: inner),
+    );
+  }
+
+  Widget _followContent() {
+    final matches = _trains.where((t) => t.trainId == _followTrainId).toList();
+    final close = GestureDetector(
+      onTap: () => setState(() => _followTrainId = null),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), shape: BoxShape.circle),
+        child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
       ),
+    );
+    if (matches.isEmpty) {
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        StripeHeader(
+            icon: Icons.directions_subway_rounded, title: 'Train $_followTrainId', trailing: close),
+        const SizedBox(height: 12),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Text('This train is no longer live',
+              style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+        ),
+      ]);
+    }
+    final t = matches.first;
+    final color = Color(lineColors[t.line] ?? 0xFF9E9E9E);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        StripeHeader(
+            icon: Icons.directions_subway_rounded, title: 'Train ${t.trainId}', trailing: close),
+        const SizedBox(height: 10),
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Text(t.line, style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+          const Spacer(),
+          const Icon(Icons.my_location_rounded, color: _inkSoft, size: 16),
+          const SizedBox(width: 4),
+          const Text('following', style: TextStyle(color: _inkSoft, fontSize: 12, fontWeight: FontWeight.w500)),
+        ]),
+        const SizedBox(height: 14),
+        Text('→ ${t.destinoName}',
+            style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(
+            child: Text('Next: ${t.nextStopName}',
+                style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+          ),
+          Text(fmtEta(t.etaSeconds),
+              style: const TextStyle(color: _ink, fontSize: 24, fontWeight: FontWeight.w800)),
+          const SizedBox(width: 4),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 3),
+            child: Text('min', style: TextStyle(color: _inkSoft, fontSize: 12)),
+          ),
+        ]),
+      ],
     );
   }
 
@@ -430,19 +544,28 @@ class _MapScreenState extends State<MapScreen> {
     return SafeArea(
       child: Align(
         alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 20),
-          child: GlassPanel(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            borderRadius: const BorderRadius.all(Radius.circular(30)),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _navItem(Icons.map_rounded, 'Map', 0),
-                _navItem(Icons.pin_drop_rounded, 'Stations', 1),
-                _navItem(Icons.info_rounded, 'Info', 2),
-                _navItem(Icons.settings_rounded, 'Settings', 3),
-              ],
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 550),
+          curve: Curves.easeOutBack,
+          builder: (context, v, child) => Transform.translate(
+            offset: Offset(0, (1 - v) * 80),
+            child: Opacity(opacity: v.clamp(0.0, 1.0), child: child),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: GlassPanel(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              borderRadius: const BorderRadius.all(Radius.circular(30)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _navItem(Icons.map_rounded, 'Map', 0),
+                  _navItem(Icons.pin_drop_rounded, 'Stations', 1),
+                  _navItem(Icons.info_rounded, 'Info', 2),
+                  _navItem(Icons.settings_rounded, 'Settings', 3),
+                ],
+              ),
             ),
           ),
         ),
@@ -451,11 +574,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _navItem(IconData icon, String label, int index) {
-    final selected = _tab == index && _selectedStation == null;
+    final selected = _tab == index && _selectedStation == null && _followTrainId == null;
     return GestureDetector(
       onTap: () => setState(() {
         _tab = index;
         _selectedStation = null;
+        _followTrainId = null;
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -489,6 +613,7 @@ class _MapScreenState extends State<MapScreen> {
       child: GestureDetector(
         onTap: () => setState(() {
           _selectedStation = s;
+          _followTrainId = null;
           _tab = 0;
         }),
         child: Center(
@@ -523,26 +648,33 @@ class _MapScreenState extends State<MapScreen> {
 
   Marker _trainMarker(TrainPosition t) {
     final color = Color(lineColors[t.line] ?? 0xFFFFFFFF);
+    final followed = t.trainId == _followTrainId;
     return Marker(
       point: t.pos,
-      width: 32,
-      height: 32,
-      child: Tooltip(
-        message: '${t.trainId} → ${t.destinoName}\n'
-            'next: ${t.nextStopName} in ${(t.etaSeconds / 60).floor()}:'
-            '${(t.etaSeconds % 60).round().toString().padLeft(2, '0')}',
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 3),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
-          ),
-          padding: const EdgeInsets.all(3),
-          child: Image.asset(
-            'assets/icons/metro.png',
-            errorBuilder: (_, __, ___) =>
-                Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      width: followed ? 44 : 32,
+      height: followed ? 44 : 32,
+      child: GestureDetector(
+        onTap: () => _followTrain(t),
+        child: Tooltip(
+          message: '${t.trainId} → ${t.destinoName}\n'
+              'next: ${t.nextStopName} in ${(t.etaSeconds / 60).floor()}:'
+              '${(t.etaSeconds % 60).round().toString().padLeft(2, '0')}',
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: followed ? 4 : 3),
+              boxShadow: followed
+                  ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 14, spreadRadius: 2)]
+                  : [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
+            ),
+            padding: EdgeInsets.all(followed ? 4 : 3),
+            child: Image.asset(
+              'assets/icons/metro.png',
+              errorBuilder: (_, __, ___) =>
+                  Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            ),
           ),
         ),
       ),
