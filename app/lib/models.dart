@@ -8,6 +8,77 @@ const lineColors = <String, int>{
   'Vermelha': 0xFFD2222D,
 };
 
+/// Display order for the four lines.
+const lineOrder = <String>['Azul', 'Amarela', 'Verde', 'Vermelha'];
+
+class LineStatus {
+  final String line;
+  final String status;   // e.g. "Ok"
+  final String detail;   // disruption message when present
+
+  LineStatus({required this.line, required this.status, required this.detail});
+
+  bool get isNormal => status.trim().toLowerCase() == 'ok';
+
+  factory LineStatus.fromJson(Map<String, dynamic> j) => LineStatus(
+        line: j['line'] as String,
+        status: (j['status'] as String? ?? '').trim(),
+        detail: (j['detail'] as String? ?? '').trim(),
+      );
+}
+
+/// One line+direction track polyline from GET /track (baked OSM geometry).
+class TrackLine {
+  final String line;
+  final int color;          // ARGB
+  final List<LatLng> points;
+
+  TrackLine({required this.line, required this.color, required this.points});
+
+  factory TrackLine.fromFeature(Map<String, dynamic> f) {
+    final props = f['properties'] as Map<String, dynamic>;
+    final coords = f['geometry']['coordinates'] as List;
+    return TrackLine(
+      line: props['line'] as String? ?? '',
+      color: _hexToArgb(props['colour'] as String?),
+      // GeoJSON is [lon, lat]
+      points: coords
+          .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+          .toList(),
+    );
+  }
+}
+
+int _hexToArgb(String? hex) {
+  if (hex == null || hex.isEmpty) return 0xFF888888;
+  return 0xFF000000 | int.parse(hex.replaceFirst('#', ''), radix: 16);
+}
+
+/// A geocoded place from search (Nominatim) or a matched station.
+class Place {
+  final String name;
+  final LatLng pos;
+  final Station? station; // non-null when the result is one of our stations
+
+  Place({required this.name, required this.pos, this.station});
+}
+
+class Arrival {
+  final String trainId;
+  final String line;
+  final String destinoName;
+  final double etaSeconds;
+
+  Arrival({required this.trainId, required this.line, required this.destinoName, required this.etaSeconds});
+
+  factory Arrival.fromJson(Map<String, dynamic> j) => Arrival(
+        trainId: j['train_id'] as String,
+        line: j['line'] as String,
+        destinoName: j['destino_name'] as String,
+        etaSeconds: (j['eta_seconds'] as num).toDouble(),
+      );
+}
+
 class Station {
   final String stopId;
   final String name;

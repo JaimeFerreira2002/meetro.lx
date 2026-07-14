@@ -73,6 +73,12 @@ async def lines():
     return [v.model_dump() for v in app.state.registry.line_status.values()]
 
 
+@app.get("/station/{stop_id}/arrivals")
+async def station_arrivals(stop_id: str):
+    reg: Registry = app.state.registry
+    return reg.arrivals_at(app.state.ref, stop_id)
+
+
 @app.get("/track")
 async def track_geojson():
     if TRACK_FILE.exists():

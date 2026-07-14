@@ -89,6 +89,27 @@ class Registry:
         for t in dead:
             del self.trains[t]
 
+    def arrivals_at(self, ref: Reference, stop_id: str, now: float | None = None, limit: int = 6) -> list[dict]:
+        """Upcoming trains at a station, soonest first — for the station schedule view."""
+        now = time.time() if now is None else now
+        out: list[dict] = []
+        for train_id, obs in self.trains.items():
+            dt = now - obs.captured_at
+            if dt > STALE_AFTER:
+                continue
+            etas = [eta - dt for stop, eta in obs.itinerary if stop == stop_id and eta - dt > 0]
+            if not etas:
+                continue
+            out.append({
+                "train_id": train_id,
+                "line": obs.line,
+                "destino": obs.destino,
+                "destino_name": ref.destino_name(obs.destino),
+                "eta_seconds": round(min(etas), 1),
+            })
+        out.sort(key=lambda a: a["eta_seconds"])
+        return out[:limit]
+
     def snapshot(self, ref: Reference, track=None, now: float | None = None) -> list[TrainPosition]:
         now = time.time() if now is None else now
         out: list[TrainPosition] = []
