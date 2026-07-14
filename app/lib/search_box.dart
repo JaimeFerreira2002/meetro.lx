@@ -1,4 +1,4 @@
-/// Glass search box: filters stations live, and geocodes free text via Nominatim
+/// Cozy search box: filters stations live, and geocodes free text via Nominatim
 /// on submit. Picking a result flies the map there.
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -72,7 +72,7 @@ class _SearchBoxState extends State<SearchBox> {
           borderRadius: const BorderRadius.all(Radius.circular(20)),
           child: Row(
             children: [
-              const Icon(Icons.search_rounded, color: Colors.white70, size: 20),
+              const Icon(Icons.search_rounded, color: Colors.black45, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -80,12 +80,12 @@ class _SearchBoxState extends State<SearchBox> {
                   onChanged: _onChanged,
                   onSubmitted: _onSubmit,
                   textInputAction: TextInputAction.search,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
+                  decoration: const InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     hintText: 'Search stations or places',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                    hintStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w400),
                   ),
                 ),
               ),
@@ -98,7 +98,7 @@ class _SearchBoxState extends State<SearchBox> {
                     setState(() => _results = []);
                     FocusScope.of(context).unfocus();
                   },
-                  child: const Icon(Icons.close_rounded, color: Colors.white70, size: 18),
+                  child: const Icon(Icons.close_rounded, color: Colors.black45, size: 18),
                 ),
             ],
           ),
@@ -119,10 +119,11 @@ class _SearchBoxState extends State<SearchBox> {
                       dense: true,
                       leading: Icon(
                         p.station != null ? Icons.directions_subway_rounded : Icons.place_rounded,
-                        color: Colors.white70,
+                        color: Colors.black45,
                         size: 20,
                       ),
-                      title: Text(p.name, style: const TextStyle(color: Colors.white)),
+                      title: Text(p.name,
+                          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
                       onTap: () => _pick(p),
                     );
                   },

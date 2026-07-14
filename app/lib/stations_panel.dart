@@ -34,8 +34,13 @@ class _StationsListState extends State<StationsList> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Stations (${stations.length})',
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+        Row(children: [
+          const Icon(Icons.pin_drop_rounded, color: Colors.black87, size: 22),
+          const SizedBox(width: 8),
+          Text('Stations (${stations.length})',
+              style: const TextStyle(
+                  color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w700)),
+        ]),
         const SizedBox(height: 8),
         Flexible(
           child: Theme(
@@ -56,8 +61,8 @@ class _StationsListState extends State<StationsList> {
       tilePadding: EdgeInsets.zero,
       backgroundColor: Colors.transparent,
       collapsedBackgroundColor: Colors.transparent,
-      iconColor: Colors.white70,
-      collapsedIconColor: Colors.white70,
+      iconColor: Colors.black45,
+      collapsedIconColor: Colors.black45,
       onExpansionChanged: (open) {
         if (open && !_arrivals.containsKey(s.stopId)) _load(s.stopId);
       },
@@ -77,7 +82,7 @@ class _StationsListState extends State<StationsList> {
             ),
           Expanded(
             child: Text(s.name,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -97,12 +102,12 @@ class _StationsListState extends State<StationsList> {
       );
     }
     if (arrivals.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 12),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text('No upcoming trains',
-              style: TextStyle(color: Colors.white.withOpacity(0.6))),
+              style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500)),
         ),
       );
     }
@@ -126,10 +131,13 @@ class _StationsListState extends State<StationsList> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text('→ ${a.destinoName}',
-                        style: const TextStyle(color: Colors.white)),
+                        style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
                   ),
                   Text(fmtEta(a.etaSeconds),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                      style: const TextStyle(
+                          color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(width: 4),
+                  const Text('min', style: TextStyle(color: Colors.black45, fontSize: 11)),
                 ],
               ),
             ),

@@ -54,13 +54,23 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
       children: [
         Row(
           children: [
+            const Icon(Icons.pin_drop_rounded, color: Colors.black87, size: 22),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(s.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(
+                      color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w700)),
             ),
             GestureDetector(
               onTap: widget.onClose,
-              child: const Icon(Icons.close_rounded, color: Colors.white70),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+              ),
             ),
           ],
         ),
@@ -70,24 +80,37 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
             for (final line in s.lines)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Color(lineColors[line] ?? 0xFFFFFFFF),
-                      shape: BoxShape.circle,
-                    ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Color(lineColors[line] ?? 0xFFFFFFFF).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 4),
-                  Text(line, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
-                ]),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Color(lineColors[line] ?? 0xFFFFFFFF),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(line,
+                        style: const TextStyle(
+                            color: Colors.black87, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 16),
-        const Text('Next trains',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        const Row(children: [
+          Icon(Icons.schedule_rounded, color: Colors.black87, size: 18),
+          SizedBox(width: 8),
+          Text('Next trains',
+              style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
+        ]),
         const SizedBox(height: 8),
         _body(),
       ],
@@ -103,18 +126,19 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
       );
     }
     if (arrivals.isEmpty) {
-      return Text('No upcoming trains', style: TextStyle(color: Colors.white.withOpacity(0.6)));
+      return const Text('No upcoming trains',
+          style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500));
     }
     return Column(
       children: [
         for (final a in arrivals)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               children: [
                 Container(
-                  width: 10,
-                  height: 10,
+                  width: 12,
+                  height: 12,
                   decoration: BoxDecoration(
                     color: Color(lineColors[a.line] ?? 0xFFFFFFFF),
                     shape: BoxShape.circle,
@@ -122,10 +146,14 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('→ ${a.destinoName}', style: const TextStyle(color: Colors.white)),
+                  child: Text('→ ${a.destinoName}',
+                      style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
                 ),
                 Text(fmtEta(a.etaSeconds),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    style: const TextStyle(
+                        color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(width: 4),
+                const Text('min', style: TextStyle(color: Colors.black45, fontSize: 12)),
               ],
             ),
           ),

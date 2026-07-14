@@ -6,12 +6,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'glass.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'search_box.dart';
+import 'splash.dart';
 import 'station_details.dart';
 import 'stations_panel.dart';
 
@@ -24,9 +26,36 @@ class MetroApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
         title: 'Metro Lisboa AR',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData.dark(useMaterial3: true),
-        home: const MapScreen(),
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: Colors.white,
+          textTheme: GoogleFonts.poppinsTextTheme(),
+        ),
+        home: const _Root(),
       );
+}
+
+/// Splash first, then the map.
+class _Root extends StatefulWidget {
+  const _Root();
+
+  @override
+  State<_Root> createState() => _RootState();
+}
+
+class _RootState extends State<_Root> {
+  bool _ready = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: _ready
+          ? const MapScreen()
+          : SplashScreen(onDone: () => setState(() => _ready = true)),
+    );
+  }
 }
 
 enum MapStyle { standard, light, dark }
@@ -42,7 +71,18 @@ extension MapStyleX on MapStyle {
         MapStyle.light => 'Light',
         MapStyle.dark => 'Dark',
       };
+  IconData get icon => switch (this) {
+        MapStyle.standard => Icons.map_rounded,
+        MapStyle.light => Icons.light_mode_rounded,
+        MapStyle.dark => Icons.dark_mode_rounded,
+      };
 }
+
+// Cozy palette
+const _ink = Colors.black87;
+const _inkSoft = Colors.black45;
+const _ok = Color(0xFF34C759);
+const _warn = Color(0xFFFF9F0A);
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -158,10 +198,21 @@ class _MapScreenState extends State<MapScreen> {
                   SearchBox(api: _api, stations: _stations, onPick: _flyTo),
                   const SizedBox(height: 8),
                   GlassPanel(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    borderRadius: const BorderRadius.all(Radius.circular(16)),
-                    child: Text('${_trains.length} trains · live',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    borderRadius: const BorderRadius.all(Radius.circular(18)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.directions_subway_rounded, color: _ink, size: 20),
+                        const SizedBox(width: 8),
+                        Text('${_trains.length}',
+                            style: const TextStyle(
+                                color: _ink, fontSize: 24, fontWeight: FontWeight.w800, height: 1)),
+                        const SizedBox(width: 6),
+                        const Text('trains live',
+                            style: TextStyle(color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -179,7 +230,7 @@ class _MapScreenState extends State<MapScreen> {
                   child: const GlassPanel(
                     padding: EdgeInsets.all(14),
                     borderRadius: BorderRadius.all(Radius.circular(30)),
-                    child: Icon(Icons.my_location_rounded, color: Colors.white),
+                    child: Icon(Icons.my_location_rounded, color: _ink),
                   ),
                 ),
               ),
@@ -229,30 +280,50 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Service status',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text('${_trains.length} trains circulating',
-            style: TextStyle(color: Colors.white.withOpacity(0.7))),
+        const Row(children: [
+          Icon(Icons.info_rounded, color: _ink, size: 22),
+          SizedBox(width: 8),
+          Text('Service status',
+              style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
+        ]),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text('${_trains.length}',
+                style: const TextStyle(
+                    color: _ink, fontSize: 44, fontWeight: FontWeight.w800, height: 1)),
+            const SizedBox(width: 8),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text('trains circulating',
+                  style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
         for (final line in lineOrder) _lineRow(line),
         const SizedBox(height: 16),
-        Text(disrupted.isEmpty ? 'Warnings' : 'Warnings (${disrupted.length})',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        Row(children: [
+          const Icon(Icons.warning_rounded, color: _ink, size: 18),
+          const SizedBox(width: 8),
+          Text(disrupted.isEmpty ? 'Warnings' : 'Warnings (${disrupted.length})',
+              style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+        ]),
         const SizedBox(height: 6),
         if (disrupted.isEmpty)
-          Row(children: [
-            const Icon(Icons.check_circle, color: Color(0xFF34C759), size: 18),
-            const SizedBox(width: 8),
+          const Row(children: [
+            Icon(Icons.check_circle, color: _ok, size: 18),
+            SizedBox(width: 8),
             Text('All lines running normally',
-                style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
           ])
         else
           for (final l in disrupted)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Text('${l.line}: ${l.detail.isEmpty ? l.status : l.detail}',
-                  style: const TextStyle(color: Color(0xFFFF9F0A))),
+                  style: const TextStyle(color: _warn, fontWeight: FontWeight.w600)),
             ),
       ],
     );
@@ -265,28 +336,28 @@ class _MapScreenState extends State<MapScreen> {
     );
     final ok = status.isNormal;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Container(
-            width: 14,
-            height: 14,
+            width: 16,
+            height: 16,
             decoration: BoxDecoration(
               color: Color(lineColors[line] ?? 0xFFFFFFFF),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.5)),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(line,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            child: Text(line, style: const TextStyle(color: _ink, fontWeight: FontWeight.w600)),
           ),
-          Text('${_countFor(line)} trains',
-              style: TextStyle(color: Colors.white.withOpacity(0.6))),
+          Text('${_countFor(line)}',
+              style: const TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(width: 4),
+          const Text('trains', style: TextStyle(color: _inkSoft, fontSize: 12)),
           const SizedBox(width: 12),
           Icon(ok ? Icons.check_circle : Icons.warning_amber_rounded,
-              color: ok ? const Color(0xFF34C759) : const Color(0xFFFF9F0A), size: 18),
+              color: ok ? _ok : _warn, size: 18),
         ],
       ),
     );
@@ -297,10 +368,17 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Settings',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
+        const Row(children: [
+          Icon(Icons.settings_rounded, color: _ink, size: 22),
+          SizedBox(width: 8),
+          Text('Settings', style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
+        ]),
         const SizedBox(height: 16),
-        Text('Map style', style: TextStyle(color: Colors.white.withOpacity(0.7))),
+        const Row(children: [
+          Icon(Icons.layers_rounded, color: _inkSoft, size: 18),
+          SizedBox(width: 6),
+          Text('Map style', style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+        ]),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -323,16 +401,22 @@ class _MapScreenState extends State<MapScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? Colors.white.withOpacity(0.9) : Colors.white.withOpacity(0.12),
+            color: selected ? _ink : Colors.black.withOpacity(0.05),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(selected ? 0.9 : 0.3)),
           ),
-          child: Text(
-            s.label,
-            style: TextStyle(
-              color: selected ? Colors.black : Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Column(
+            children: [
+              Icon(s.icon, size: 20, color: selected ? Colors.white : _ink),
+              const SizedBox(height: 4),
+              Text(
+                s.label,
+                style: TextStyle(
+                  color: selected ? Colors.white : _ink,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -376,16 +460,16 @@ class _MapScreenState extends State<MapScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withOpacity(0.85) : Colors.transparent,
+          color: selected ? _ink : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: selected ? Colors.black : Colors.white),
+            Icon(icon, size: 22, color: selected ? Colors.white : _inkSoft),
             if (selected) ...[
               const SizedBox(width: 8),
               Text(label,
-                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w700)),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             ],
           ],
         ),
