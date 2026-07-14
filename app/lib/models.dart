@@ -54,6 +54,22 @@ int _hexToArgb(String? hex) {
   return 0xFF000000 | int.parse(hex.replaceFirst('#', ''), radix: 16);
 }
 
+class Arrival {
+  final String trainId;
+  final String line;
+  final String destinoName;
+  final double etaSeconds;
+
+  Arrival({required this.trainId, required this.line, required this.destinoName, required this.etaSeconds});
+
+  factory Arrival.fromJson(Map<String, dynamic> j) => Arrival(
+        trainId: j['train_id'] as String,
+        line: j['line'] as String,
+        destinoName: j['destino_name'] as String,
+        etaSeconds: (j['eta_seconds'] as num).toDouble(),
+      );
+}
+
 class Station {
   final String stopId;
   final String name;

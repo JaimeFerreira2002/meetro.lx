@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'glass.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'stations_panel.dart';
 
 void main() => runApp(const MetroApp());
 
@@ -50,7 +51,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
 
-  int _tab = 0; // 0 = map, 1 = info, 2 = settings
+  int _tab = 0; // 0 map, 1 stations, 2 info, 3 settings
   MapStyle _style = MapStyle.standard;
 
   List<TrackLine> _track = [];
@@ -127,9 +128,10 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // Info / Settings panels
-          if (_tab == 1) _panel(_infoContent()),
-          if (_tab == 2) _panel(_settingsContent()),
+          // Panels
+          if (_tab == 1) _panelShell(StationsList(api: _api, stations: _stations)),
+          if (_tab == 2) _panelShell(SingleChildScrollView(child: _infoContent())),
+          if (_tab == 3) _panelShell(SingleChildScrollView(child: _settingsContent())),
 
           // Bottom nav bar
           _navBar(),
@@ -140,17 +142,15 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---- panels ----
 
-  Widget _panel(Widget child) {
+  Widget _panelShell(Widget child) {
     return SafeArea(
       child: Align(
         alignment: Alignment.bottomCenter,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
-            child: GlassPanel(
-              child: SingleChildScrollView(child: child),
-            ),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+            child: GlassPanel(child: child),
           ),
         ),
       ),
@@ -282,14 +282,15 @@ class _MapScreenState extends State<MapScreen> {
         child: Padding(
           padding: const EdgeInsets.only(bottom: 20),
           child: GlassPanel(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             borderRadius: const BorderRadius.all(Radius.circular(30)),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 _navItem(Icons.map_rounded, 'Map', 0),
-                _navItem(Icons.info_rounded, 'Info', 1),
-                _navItem(Icons.settings_rounded, 'Settings', 2),
+                _navItem(Icons.pin_drop_rounded, 'Stations', 1),
+                _navItem(Icons.info_rounded, 'Info', 2),
+                _navItem(Icons.settings_rounded, 'Settings', 3),
               ],
             ),
           ),
@@ -304,7 +305,7 @@ class _MapScreenState extends State<MapScreen> {
       onTap: () => setState(() => _tab = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? Colors.white.withOpacity(0.85) : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
@@ -327,32 +328,48 @@ class _MapScreenState extends State<MapScreen> {
 
   Marker _stationMarker(Station s) => Marker(
         point: s.pos,
-        width: 8,
-        height: 8,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.grey.shade400,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black26),
-          ),
-        ),
-      );
-
-  Marker _trainMarker(TrainPosition t) => Marker(
-        point: t.pos,
-        width: 16,
-        height: 16,
+        width: 22,
+        height: 22,
         child: Tooltip(
-          message: '${t.trainId} → ${t.destinoName}\n'
-              'next: ${t.nextStopName} in ${(t.etaSeconds / 60).floor()}:'
-              '${(t.etaSeconds % 60).round().toString().padLeft(2, '0')}',
-          child: Container(
-            decoration: BoxDecoration(
-              color: Color(lineColors[t.line] ?? 0xFFFFFFFF),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.black, width: 2),
+          message: s.name,
+          child: Image.asset(
+            'assets/icons/station.png',
+            errorBuilder: (_, __, ___) => Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade400,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black26),
+              ),
             ),
           ),
         ),
       );
+
+  Marker _trainMarker(TrainPosition t) {
+    final color = Color(lineColors[t.line] ?? 0xFFFFFFFF);
+    return Marker(
+      point: t.pos,
+      width: 32,
+      height: 32,
+      child: Tooltip(
+        message: '${t.trainId} → ${t.destinoName}\n'
+            'next: ${t.nextStopName} in ${(t.etaSeconds / 60).floor()}:'
+            '${(t.etaSeconds % 60).round().toString().padLeft(2, '0')}',
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 3),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
+          ),
+          padding: const EdgeInsets.all(3),
+          child: Image.asset(
+            'assets/icons/metro.png',
+            errorBuilder: (_, __, ___) =>
+                Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          ),
+        ),
+      ),
+    );
+  }
 }

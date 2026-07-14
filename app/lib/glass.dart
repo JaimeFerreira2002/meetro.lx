@@ -32,11 +32,11 @@ class GlassPanel extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withOpacity(0.24),
-                Colors.white.withOpacity(0.08),
+                Colors.white.withOpacity(0.10),
+                Colors.white.withOpacity(0.03),
               ],
             ),
-            border: Border.all(color: Colors.white.withOpacity(0.35), width: 1),
+            border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.28),

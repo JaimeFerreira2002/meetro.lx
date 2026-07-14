@@ -50,6 +50,18 @@ class MetroApi {
     }
   }
 
+  /// Upcoming trains at one station (on-demand; single attempt, [] on failure).
+  Future<List<Arrival>> arrivals(String stopId) async {
+    try {
+      final resp = await http.get(Uri.parse('$base/station/$stopId/arrivals'));
+      if (resp.statusCode != 200) return [];
+      final list = jsonDecode(resp.body) as List;
+      return list.map((e) => Arrival.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Live train snapshots via Server-Sent Events (`GET /stream`).
   /// Reconnects automatically if the server is down or the connection drops.
   Stream<List<TrainPosition>> trainStream() async* {
