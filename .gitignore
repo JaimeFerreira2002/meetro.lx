@@ -13,10 +13,30 @@ spike/captures/
 # macOS
 .DS_Store
 
-# Unity (app/) — expanded when the Unity project lands
-app/Library/
-app/Temp/
-app/Logs/
-app/obj/
-app/Build/
-app/UserSettings/
+# Flutter / Dart (app/)
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/pubspec.lock
+app/**/generated_plugin_registrant.*
+
+# iOS / Xcode / CocoaPods (app/ios/)
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/Flutter.framework/
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Flutter/Generated.xcconfig
+app/ios/Runner.xcworkspace/xcuserdata/
+app/ios/**/xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# Android (app/android/)
+app/android/.gradle/
+app/android/local.properties
+app/android/**/build/
+app/android/key.properties
+*.keystore
+*.jks

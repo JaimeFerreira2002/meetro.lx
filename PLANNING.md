@@ -2,6 +2,9 @@
 
 Mobile AR app that overlays live Lisbon Metro trains in 3D space through the phone camera, using the official Metro Lisboa `EstadoServicoML` API.
 
+**Status:** Phase 0 spike PASSED against the live API (2026-07-14). Interpolation
+premise confirmed. See §8 for locked decisions (Flutter / iOS-first / monorepo).
+
 ## 1. The API
 
 Base: `https://api.metrolisboa.pt:8243/estadoServicoML/1.0.1`
@@ -17,6 +20,15 @@ Auth: OAuth2 bearer token (client-credentials against the WSO2 store subscriptio
 
 **No train-position endpoint exists.** Positions are derived: the same physical train ID
 appears in the wait lists of multiple stations down the line with increasing ETAs.
+*Spike-confirmed:* the feed effectively hands each train's full forward itinerary — one
+`comboio` seen at up to 15 consecutive stations with monotonic `tempoChegada` (seconds
+to arrival). Measured 100% multi-station visibility, no ID flicker, real-time countdown.
+
+Confirmed response schema (per platform entry): `stop_id`, `cais`, `hora`
+(`YYYYMMDDhhmmss`), `destino` (numeric code → resolve via `infoDestinos`), `sairServico`,
+and up to three upcoming trains `comboio{,2,3}` / `tempoChegada{1,2,3}` (seconds; `--` when
+empty). Auth: `client_credentials` → `https://api.metrolisboa.pt:8243/token`. TLS cert is
+valid but some Python trust stores need `certifi`/`--insecure` (curl works without `-k`).
 
 **No track geometry in the API** — only station points. Tunnel polylines come from
 OpenStreetMap (one-time Overpass export → baked GeoJSON in `data/`), cross-checked
@@ -53,11 +65,47 @@ Backend proxy is mandatory: the OAuth secret can't ship in a mobile binary, one 
 serves all users under unknown rate limits, and the interpolation state machine belongs
 in one place.
 
-## 4. Mobile client
+### Backend (Phase 1) components — FastAPI
 
-**Recommended: Unity + AR Foundation + Google ARCore Geospatial API.**
-- Geospatial API = VPS-grade (~1 m) world anchoring, works in Lisbon, Android + iOS.
-- Native ARKit geo-tracking is NOT available in Lisbon; RN/Flutter AR plugins immature.
+The client does zero interpolation; it just renders positions from the stream.
+
+1. **Poller** — single background task. Holds/refreshes the OAuth token (~1 h expiry),
+   polls `/tempoEspera/Linha/{4 lines}` every ~10–15 s, handles the TLS quirk.
+2. **Static reference** (loaded once, refreshed rarely): station catalog + GPS from
+   `/infoEstacao/todos`; OSM track polylines per line/direction (baked GeoJSON in
+   `data/`); line station-order; `destino` code map from `/infoDestinos/todos`.
+3. **Train registry** — per-`comboio` state across polls (itinerary, line, direction,
+   destino, last-seen); handles appear/vanish and terminus turnarounds.
+4. **Position estimator** — next station = min ETA; consecutive ETAs give forward
+   segment times; station-behind from line topology; position = Shapely arc-length
+   interpolation along the polyline by `1 − eta_next/segment_time`; outputs
+   `lat, lng, bearing, speed`; learns segment times over time. Depth ≈ constant offset.
+5. **Motion smoother** — advances trains by `speed × elapsed` between polls, re-syncs
+   with a constant-velocity filter so they glide and never jump backward.
+6. **Fallback simulator** — when `tempoEspera` is down but `estadoLinha` is Ok, spawn
+   synthetic trains at scheduled `infoIntervalos` headways.
+
+**Client API:** `GET /health`, `GET /stations`, `GET /lines`, `GET /trains`,
+`WS /stream` (or SSE) pushing `{trainId, line, lat, lng, depth, bearing, speedMps,
+nextStation, etaSeconds}` ~every 1–2 s, `GET /track/{line}`.
+**Stack:** FastAPI + uvicorn, `httpx` async polling, Pydantic, Shapely for geometry;
+in-memory state (no DB for MVP); Dockerized, runs 24/7 as one instance.
+
+## 4. Mobile client — Flutter, iOS-first
+
+**Flutter/Dart shell + a native AR platform view.** The one hard requirement is
+VPS-grade geospatial anchoring (pin a train to a real lat/lng through the camera); plain
+GPS+compass drifts too much. That capability is **not** available as a pure-Dart plugin:
+
+- ARKit's own geo-anchors (`ARGeoTrackingConfiguration`) do **not** cover Lisbon
+  (US-cities + London list). Google's **ARCore Geospatial API** (Street View VPS, ~1 m)
+  does, and runs on iOS via the *ARCore SDK for iOS*, but no Flutter plugin exposes it.
+- So: Dart owns the app shell, 2D map, feed client, and UI; the **camera viewport is a
+  native `UiKitView`** (ARKit + `ARCore/Geospatial` pod, SceneKit/RealityKit render)
+  bridged via a Method/EventChannel. iOS-first ⇒ write the Swift module first; the
+  Android ARCore module (Kotlin) comes later behind the same Dart interface.
+- Tradeoff: Flutter's single-codebase benefit covers ~80% of the app but **not** the AR
+  view (native Swift now, native Kotlin later). Testing AR needs a physical A12+ iPhone.
 
 ### AR UX ("x-ray view")
 - Trains rendered 20–40 m below street level: darkened ground plane, glowing
@@ -68,16 +116,15 @@ in one place.
 
 ## 5. Roadmap
 
-- **Phase 0 — Feasibility spike (1–2 days).** Subscribe on the API store, capture an
-  hour of `tempoEspera` data (`spike/capture.py`), run `spike/analyze.py`. Validates:
-  train ID stability across polls/stations, ETA granularity, whether data is live at
-  all. Also export OSM track geometry and sanity-check against station coords.
-  **This validates or kills the interpolation premise.**
-- **Phase 1 — Interpolation service + 2D live map (~1 week).** FastAPI poller, train
-  registry, position estimator, SSE feed; Mapbox debug page with live train dots.
-  Ground truth for accuracy: stand on a platform, watch the dot arrive with the train.
-- **Phase 2 — AR client MVP (~2–3 weeks).** Unity + ARCore Geospatial. Static content
-  first (pins, tunnel tubes), then live feed, then x-ray polish. Android first.
+- **Phase 0 — Feasibility spike. ✅ DONE (2026-07-14).** `spike/capture.py` +
+  `analyze.py` validated the interpolation premise against live data (see §1/§8).
+  Remaining sub-task: export OSM track geometry and sanity-check against station coords.
+- **Phase 1 — Interpolation service + 2D live map (~1 week).** FastAPI backend (§3) +
+  Flutter 2D Mapbox map with live train dots (pure Dart, shared feed client, doubles as
+  fallback/indoor mode). Ground truth: stand on a platform, watch the dot arrive.
+- **Phase 2 — AR client MVP (~2–3 weeks).** Flutter shell + native iOS Geospatial AR
+  module. Static content first (station pins, tunnel tubes), then live feed, then x-ray
+  polish. iOS first; Android ARCore module later.
 - **Phase 3 — Polish.** Schedule-fallback simulation, wait-time panels, onboarding,
   battery management, offline track data.
 
@@ -90,13 +137,29 @@ in one place.
    forgiving of a few meters of error.
 4. **Rate limits** — undisclosed; single-poller proxy contains the blast radius.
 
-## 7. Repo layout (target)
+## 7. Repo layout — single monorepo
+
+One repo, folder per component. Each folder keeps its own toolchain and deploys
+independently (monorepo ≠ coupled deploys); the shared wire contract (train-position
+schema) is the reason to keep them together while solo/early.
 
 ```
 metro-lisboa-ar/
 ├── PLANNING.md      # this file
-├── spike/           # Phase 0: data capture + analysis
-├── server/          # Phase 1: FastAPI interpolation service
-├── data/            # baked track GeoJSON, station catalog
-└── app/             # Phase 2: Unity AR client
+├── spike/           # Phase 0: data capture + analysis (Python)      ✅
+├── server/          # Phase 1: FastAPI interpolation service (Python) → VPS/Fly/Railway
+├── data/            # shared: baked OSM track GeoJSON, station catalog
+└── app/             # Phase 2: Flutter app + native iOS Swift AR module → TestFlight
 ```
+
+## 8. Decisions
+
+- **Mobile: Flutter, iOS-first** — Dart shell + native iOS AR platform view using ARCore
+  Geospatial VPS (ARKit geo-anchors don't cover Lisbon; no Flutter VPS plugin). §4.
+  Supersedes the earlier Unity / Android-first recommendation.
+- **Monorepo** — frontend + backend + data in one repo; split later via `git filter-repo`
+  only if it grows a team or CI configs conflict. §7.
+- **Backend is mandatory** — holds the OAuth secret, single shared poller, owns the
+  interpolation state machine. §3.
+- **Spike verdict: VIABLE** — real-time feed with full forward itineraries; interpolation
+  can start without a learning phase. §1.
