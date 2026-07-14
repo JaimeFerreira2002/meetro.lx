@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'models.dart';
+import 'line_stripe.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onDone;
@@ -75,24 +75,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               ),
             ),
             const SizedBox(height: 4),
-            // the platform: a track with the four line colors
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 64),
-              child: Row(
-                children: [
-                  for (final line in lineOrder)
-                    Expanded(
-                      child: Container(
-                        height: 5,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          color: Color(lineColors[line]!),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+            // the platform: the four-line stripe (shared brand motif)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 64),
+              child: LineStripe(height: 5, gap: 4),
             ),
             const SizedBox(height: 28),
             Opacity(

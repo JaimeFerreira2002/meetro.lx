@@ -2,6 +2,7 @@
 /// Shows the station name, its lines, and the next trains (live arrivals).
 import 'package:flutter/material.dart';
 
+import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'stations_panel.dart' show fmtEta;
@@ -52,29 +53,22 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.pin_drop_rounded, color: Colors.black87, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(s.name,
-                  style: const TextStyle(
-                      color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w700)),
-            ),
-            GestureDetector(
-              onTap: widget.onClose,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.05),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+        StripeHeader(
+          icon: Icons.pin_drop_rounded,
+          title: s.name,
+          trailing: GestureDetector(
+            onTap: widget.onClose,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.05),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
             ),
-          ],
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Row(
           children: [
             for (final line in s.lines)

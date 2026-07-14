@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'glass.dart';
+import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'search_box.dart';
@@ -200,17 +201,26 @@ class _MapScreenState extends State<MapScreen> {
                   GlassPanel(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     borderRadius: const BorderRadius.all(Radius.circular(18)),
-                    child: Row(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.directions_subway_rounded, color: _ink, size: 20),
-                        const SizedBox(width: 8),
-                        Text('${_trains.length}',
-                            style: const TextStyle(
-                                color: _ink, fontSize: 24, fontWeight: FontWeight.w800, height: 1)),
-                        const SizedBox(width: 6),
-                        const Text('trains live',
-                            style: TextStyle(color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.directions_subway_rounded, color: _ink, size: 20),
+                            const SizedBox(width: 8),
+                            Text('${_trains.length}',
+                                style: const TextStyle(
+                                    color: _ink, fontSize: 24, fontWeight: FontWeight.w800, height: 1)),
+                            const SizedBox(width: 6),
+                            const Text('trains live',
+                                style: TextStyle(
+                                    color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const LineStripe(width: 72, height: 3, gap: 2),
                       ],
                     ),
                   ),
@@ -280,12 +290,7 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Row(children: [
-          Icon(Icons.info_rounded, color: _ink, size: 22),
-          SizedBox(width: 8),
-          Text('Service status',
-              style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
-        ]),
+        const StripeHeader(icon: Icons.info_rounded, title: 'Service status'),
         const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -368,11 +373,7 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Row(children: [
-          Icon(Icons.settings_rounded, color: _ink, size: 22),
-          SizedBox(width: 8),
-          Text('Settings', style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
-        ]),
+        const StripeHeader(icon: Icons.settings_rounded, title: 'Settings'),
         const SizedBox(height: 16),
         const Row(children: [
           Icon(Icons.layers_rounded, color: _inkSoft, size: 18),

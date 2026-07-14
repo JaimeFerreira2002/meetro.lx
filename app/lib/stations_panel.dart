@@ -2,6 +2,7 @@
 /// (fetched from GET /station/{id}/arrivals on demand).
 import 'package:flutter/material.dart';
 
+import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 
@@ -34,13 +35,7 @@ class _StationsListState extends State<StationsList> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(children: [
-          const Icon(Icons.pin_drop_rounded, color: Colors.black87, size: 22),
-          const SizedBox(width: 8),
-          Text('Stations (${stations.length})',
-              style: const TextStyle(
-                  color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w700)),
-        ]),
+        StripeHeader(icon: Icons.pin_drop_rounded, title: 'Stations (${stations.length})'),
         const SizedBox(height: 8),
         Flexible(
           child: Theme(
