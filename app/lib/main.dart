@@ -5,11 +5,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'glass.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'search_box.dart';
+import 'station_details.dart';
 import 'stations_panel.dart';
 
 void main() => runApp(const MetroApp());
@@ -50,6 +53,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
+  final _mapController = MapController();
 
   int _tab = 0; // 0 map, 1 stations, 2 info, 3 settings
   MapStyle _style = MapStyle.standard;
@@ -58,6 +62,8 @@ class _MapScreenState extends State<MapScreen> {
   List<Station> _stations = [];
   List<TrainPosition> _trains = [];
   List<LineStatus> _lines = [];
+  LatLng? _userLocation;
+  Station? _selectedStation;
   Timer? _linesTimer;
 
   @override
@@ -68,6 +74,7 @@ class _MapScreenState extends State<MapScreen> {
     _api.trainStream().listen((t) => setState(() => _trains = t));
     _refreshLines();
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
+    _requestLocationPermission();
   }
 
   Future<void> _refreshLines() async {
@@ -83,12 +90,39 @@ class _MapScreenState extends State<MapScreen> {
 
   int _countFor(String line) => _trains.where((t) => t.line == line).length;
 
+  // ---- location ----
+
+  Future<void> _requestLocationPermission() async {
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      perm = await Geolocator.requestPermission(); // triggers the OS pop-up
+    }
+  }
+
+  Future<void> _goToMyLocation() async {
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+    var perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
+    final pos = await Geolocator.getCurrentPosition();
+    final ll = LatLng(pos.latitude, pos.longitude);
+    if (!mounted) return;
+    setState(() => _userLocation = ll);
+    _mapController.move(ll, 15);
+  }
+
+  void _flyTo(LatLng target, Station? station) {
+    _mapController.move(target, station != null ? 15 : 14);
+    if (station != null) setState(() => _selectedStation = station);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
           FlutterMap(
+            mapController: _mapController,
             options: const MapOptions(
               initialCenter: LatLng(38.728, -9.145),
               initialZoom: 12,
@@ -109,31 +143,63 @@ class _MapScreenState extends State<MapScreen> {
               ),
               MarkerLayer(markers: _stations.map(_stationMarker).toList()),
               MarkerLayer(markers: _trains.map(_trainMarker).toList()),
+              if (_userLocation != null)
+                MarkerLayer(markers: [_userMarker(_userLocation!)]),
             ],
           ),
 
-          // Top HUD
+          // Top: search + live count
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: GlassPanel(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  borderRadius: const BorderRadius.all(Radius.circular(20)),
-                  child: Text('${_trains.length} trains · live',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SearchBox(api: _api, stations: _stations, onPick: _flyTo),
+                  const SizedBox(height: 8),
+                  GlassPanel(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    child: Text('${_trains.length} trains · live',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Home / my-location button
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16, bottom: 96),
+                child: GestureDetector(
+                  onTap: _goToMyLocation,
+                  child: const GlassPanel(
+                    padding: EdgeInsets.all(14),
+                    borderRadius: BorderRadius.all(Radius.circular(30)),
+                    child: Icon(Icons.my_location_rounded, color: Colors.white),
+                  ),
                 ),
               ),
             ),
           ),
 
-          // Panels
-          if (_tab == 1) _panelShell(StationsList(api: _api, stations: _stations)),
-          if (_tab == 2) _panelShell(SingleChildScrollView(child: _infoContent())),
-          if (_tab == 3) _panelShell(SingleChildScrollView(child: _settingsContent())),
+          // Panels — station details takes priority over the nav panels
+          if (_selectedStation != null)
+            _panelShell(StationDetailsPanel(
+              api: _api,
+              station: _selectedStation!,
+              onClose: () => setState(() => _selectedStation = null),
+            ))
+          else if (_tab == 1)
+            _panelShell(StationsList(api: _api, stations: _stations))
+          else if (_tab == 2)
+            _panelShell(SingleChildScrollView(child: _infoContent()))
+          else if (_tab == 3)
+            _panelShell(SingleChildScrollView(child: _settingsContent())),
 
-          // Bottom nav bar
           _navBar(),
         ],
       ),
@@ -300,9 +366,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _navItem(IconData icon, String label, int index) {
-    final selected = _tab == index;
+    final selected = _tab == index && _selectedStation == null;
     return GestureDetector(
-      onTap: () => setState(() => _tab = index),
+      onTap: () => setState(() {
+        _tab = index;
+        _selectedStation = null;
+      }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -326,21 +395,43 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---- markers ----
 
-  Marker _stationMarker(Station s) => Marker(
-        point: s.pos,
+  Marker _stationMarker(Station s) {
+    final color = Color(lineColors[s.lines.isNotEmpty ? s.lines.first : ''] ?? 0xFF9E9E9E);
+    return Marker(
+      point: s.pos,
+      width: 22,
+      height: 22,
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _selectedStation = s;
+          _tab = 0;
+        }),
+        child: Center(
+          child: Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 2)],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Marker _userMarker(LatLng p) => Marker(
+        point: p,
         width: 22,
         height: 22,
-        child: Tooltip(
-          message: s.name,
-          child: Image.asset(
-            'assets/icons/station.png',
-            errorBuilder: (_, __, ___) => Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.black26),
-              ),
-            ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0A84FF),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 4)],
           ),
         ),
       );

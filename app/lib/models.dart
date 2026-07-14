@@ -54,6 +54,15 @@ int _hexToArgb(String? hex) {
   return 0xFF000000 | int.parse(hex.replaceFirst('#', ''), radix: 16);
 }
 
+/// A geocoded place from search (Nominatim) or a matched station.
+class Place {
+  final String name;
+  final LatLng pos;
+  final Station? station; // non-null when the result is one of our stations
+
+  Place({required this.name, required this.pos, this.station});
+}
+
 class Arrival {
   final String trainId;
   final String line;

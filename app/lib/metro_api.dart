@@ -2,6 +2,7 @@
 /// view later — the app never talks to the Metro API directly.
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 import 'models.dart';
 
@@ -47,6 +48,29 @@ class MetroApi {
       } catch (_) {
         await Future.delayed(const Duration(seconds: 2));
       }
+    }
+  }
+
+  /// Geocode a free-text query to places near Lisbon (OpenStreetMap Nominatim).
+  Future<List<Place>> geocode(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search'
+        '?q=${Uri.encodeQueryComponent('$q, Lisboa')}&format=json&limit=5',
+      );
+      final resp = await http.get(uri, headers: {'User-Agent': 'metro-lisboa-ar/0.1'});
+      if (resp.statusCode != 200) return [];
+      final list = jsonDecode(resp.body) as List;
+      return list
+          .map((e) => Place(
+                name: (e['display_name'] as String).split(',').take(2).join(','),
+                pos: LatLng(double.parse(e['lat'] as String), double.parse(e['lon'] as String)),
+              ))
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 
