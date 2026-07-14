@@ -30,12 +30,14 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
+  List<TrackLine> _track = [];
   List<Station> _stations = [];
   List<TrainPosition> _trains = [];
 
   @override
   void initState() {
     super.initState();
+    _api.track().then((t) => setState(() => _track = t));
     _api.stations().then((s) => setState(() => _stations = s));
     _api.trainStream().listen((t) => setState(() => _trains = t));
   }
@@ -54,6 +56,15 @@ class _MapScreenState extends State<MapScreen> {
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'pt.metrolisboa.ar',
+              ),
+              PolylineLayer(
+                polylines: _track
+                    .map((t) => Polyline(
+                          points: t.points,
+                          color: Color(t.color).withOpacity(0.6),
+                          strokeWidth: 4,
+                        ))
+                    .toList(),
               ),
               MarkerLayer(markers: _stations.map(_stationMarker).toList()),
               MarkerLayer(markers: _trains.map(_trainMarker).toList()),

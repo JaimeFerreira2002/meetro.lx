@@ -8,6 +8,33 @@ const lineColors = <String, int>{
   'Vermelha': 0xFFD2222D,
 };
 
+/// One line+direction track polyline from GET /track (baked OSM geometry).
+class TrackLine {
+  final String line;
+  final int color;          // ARGB
+  final List<LatLng> points;
+
+  TrackLine({required this.line, required this.color, required this.points});
+
+  factory TrackLine.fromFeature(Map<String, dynamic> f) {
+    final props = f['properties'] as Map<String, dynamic>;
+    final coords = f['geometry']['coordinates'] as List;
+    return TrackLine(
+      line: props['line'] as String? ?? '',
+      color: _hexToArgb(props['colour'] as String?),
+      // GeoJSON is [lon, lat]
+      points: coords
+          .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+          .toList(),
+    );
+  }
+}
+
+int _hexToArgb(String? hex) {
+  if (hex == null || hex.isEmpty) return 0xFF888888;
+  return 0xFF000000 | int.parse(hex.replaceFirst('#', ''), radix: 16);
+}
+
 class Station {
   final String stopId;
   final String name;
