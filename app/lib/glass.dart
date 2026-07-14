@@ -38,7 +38,9 @@ class GlassPanel extends StatelessWidget {
               ),
             ],
           ),
-          child: child,
+          // Transparent Material so ListTile/ExpansionTile ink and tile colors
+          // inside panels render correctly (they require a Material ancestor).
+          child: Material(type: MaterialType.transparency, child: child),
         ),
       ),
     );
