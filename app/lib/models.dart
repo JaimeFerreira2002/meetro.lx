@@ -8,6 +8,25 @@ const lineColors = <String, int>{
   'Vermelha': 0xFFD2222D,
 };
 
+/// Display order for the four lines.
+const lineOrder = <String>['Azul', 'Amarela', 'Verde', 'Vermelha'];
+
+class LineStatus {
+  final String line;
+  final String status;   // e.g. "Ok"
+  final String detail;   // disruption message when present
+
+  LineStatus({required this.line, required this.status, required this.detail});
+
+  bool get isNormal => status.trim().toLowerCase() == 'ok';
+
+  factory LineStatus.fromJson(Map<String, dynamic> j) => LineStatus(
+        line: j['line'] as String,
+        status: (j['status'] as String? ?? '').trim(),
+        detail: (j['detail'] as String? ?? '').trim(),
+      );
+}
+
 /// One line+direction track polyline from GET /track (baked OSM geometry).
 class TrackLine {
   final String line;

@@ -37,6 +37,19 @@ class MetroApi {
     }
   }
 
+  /// Per-line operational status. Retries until reachable.
+  Future<List<LineStatus>> lines() async {
+    while (true) {
+      try {
+        final resp = await http.get(Uri.parse('$base/lines'));
+        final list = jsonDecode(resp.body) as List;
+        return list.map((e) => LineStatus.fromJson(e as Map<String, dynamic>)).toList();
+      } catch (_) {
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+  }
+
   /// Live train snapshots via Server-Sent Events (`GET /stream`).
   /// Reconnects automatically if the server is down or the connection drops.
   Stream<List<TrainPosition>> trainStream() async* {
