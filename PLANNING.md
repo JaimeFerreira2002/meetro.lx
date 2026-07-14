@@ -116,9 +116,9 @@ GPS+compass drifts too much. That capability is **not** available as a pure-Dart
 
 ## 5. Roadmap
 
-- **Phase 0 — Feasibility spike. ✅ DONE (2026-07-14).** `spike/capture.py` +
-  `analyze.py` validated the interpolation premise against live data (see §1/§8).
-  Remaining sub-task: export OSM track geometry and sanity-check against station coords.
+- **Phase 0 — Feasibility spike. ✅ DONE (2026-07-14).** Throwaway capture/analyze
+  scripts validated the interpolation premise against live data (see §1/§8), then were
+  removed. OSM track geometry exported and baked into `data/` (`build_track_geometry.py`).
 - **Phase 1 — Interpolation service + 2D live map (~1 week).** FastAPI backend (§3) +
   Flutter 2D Mapbox map with live train dots (pure Dart, shared feed client, doubles as
   fallback/indoor mode). Ground truth: stand on a platform, watch the dot arrive.
@@ -146,9 +146,8 @@ schema) is the reason to keep them together while solo/early.
 ```
 metro-lisboa-ar/
 ├── PLANNING.md      # this file
-├── spike/           # Phase 0: data capture + analysis (Python)      ✅
 ├── server/          # Phase 1: FastAPI interpolation service (Python) → VPS/Fly/Railway
-├── data/            # shared: baked OSM track GeoJSON, station catalog
+├── data/            # shared: baked OSM track GeoJSON + build script
 └── app/             # Phase 2: Flutter app + native iOS Swift AR module → TestFlight
 ```
 

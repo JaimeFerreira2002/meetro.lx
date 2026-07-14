@@ -7,9 +7,6 @@ __pycache__/
 .venv/
 venv/
 
-# Captured spike data (large JSONL logs)
-spike/captures/
-
 # macOS
 .DS_Store
 
