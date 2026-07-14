@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Metro Lisboa — live trains (debug)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    #hud {
+      position: absolute; z-index: 1000; top: 10px; left: 10px;
+      background: rgba(20,20,24,.85); color: #eee; padding: 8px 12px;
+      border-radius: 8px; font: 13px/1.4 system-ui, sans-serif;
+    }
+    #hud b { font-weight: 600; }
+    .train { border-radius: 50%; border: 2px solid #111; }
+  </style>
+</head>
+<body>
+  <div id="hud">Metro Lisboa — <b id="count">0</b> trains · <span id="status">connecting…</span></div>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const LINE_COLORS = { Amarela: "#f2c200", Azul: "#0a6cb0", Verde: "#009a44", Vermelha: "#d2222d" };
+    const map = L.map("map").setView([38.728, -9.145], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap", maxZoom: 19,
+    }).addTo(map);
+
+    // Static stations
+    fetch("/stations").then(r => r.json()).then(list => {
+      list.forEach(s => {
+        L.circleMarker([s.lat, s.lon], {
+          radius: 3, color: "#888", weight: 1, fillColor: "#ccc", fillOpacity: .9,
+        }).bindTooltip(`${s.name} (${s.stop_id})`).addTo(map);
+      });
+    });
+
+    // Live trains
+    const markers = new Map();
+    const es = new EventSource("/stream");
+    es.onopen = () => document.getElementById("status").textContent = "live";
+    es.onerror = () => document.getElementById("status").textContent = "reconnecting…";
+    es.onmessage = (ev) => {
+      const trains = JSON.parse(ev.data);
+      document.getElementById("count").textContent = trains.length;
+      const seen = new Set();
+      for (const t of trains) {
+        seen.add(t.train_id);
+        const color = LINE_COLORS[t.line] || "#fff";
+        const eta = `${Math.floor(t.eta_seconds / 60)}:${String(Math.round(t.eta_seconds % 60)).padStart(2, "0")}`;
+        const popup = `<b>${t.train_id}</b> · ${t.line}<br>→ ${t.destino_name}<br>next: ${t.next_stop_name} in ${eta}<br>${t.speed_mps} m/s`;
+        let m = markers.get(t.train_id);
+        if (!m) {
+          m = L.circleMarker([t.lat, t.lon], {
+            radius: 7, weight: 2, color: "#111", fillColor: color, fillOpacity: 1, className: "train",
+          }).addTo(map);
+          markers.set(t.train_id, m);
+        } else {
+          m.setLatLng([t.lat, t.lon]);
+          m.setStyle({ fillColor: color });
+        }
+        m.bindPopup(popup);
+      }
+      for (const [id, m] of markers) {
+        if (!seen.has(id)) { map.removeLayer(m); markers.delete(id); }
+      }
+    };
+  </script>
+</body>
+</html>
