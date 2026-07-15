@@ -1,0 +1,16 @@
+# Keep the Fly build context small and secret-free.
+# We only need: server/{app,web,requirements.txt} and data/track_geometry.geojson
+.git
+.gitignore
+app
+docs
+db_backups
+**/__pycache__
+**/*.pyc
+**/.venv
+**/venv
+server/.env
+server/.venv
+data/build_track_geometry.py
+*.pem
+.DS_Store
