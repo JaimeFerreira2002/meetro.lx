@@ -2,14 +2,16 @@
 /// This is also the app's fallback/indoor mode; the AR camera view (Phase 2)
 /// is a separate native platform-view screen that reuses [MetroApi].
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 
 import 'glass.dart';
+import 'legal.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
@@ -112,6 +114,7 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _userLocation;
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
+  bool _settingsOpen = false;
   Timer? _linesTimer;
 
   @override
@@ -141,6 +144,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _followTrainId = t.trainId;
       _selectedStation = null;
+      _settingsOpen = false;
     });
     _mapController.move(t.pos, 15);
   }
@@ -181,7 +185,10 @@ class _MapScreenState extends State<MapScreen> {
 
   void _flyTo(LatLng target, Station? station) {
     _mapController.move(target, station != null ? 15 : 14);
-    if (station != null) setState(() => _selectedStation = station);
+    setState(() {
+      _settingsOpen = false;
+      if (station != null) _selectedStation = station;
+    });
   }
 
   @override
@@ -216,6 +223,18 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
+          // Map tile attribution (required by OSM/CARTO)
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10, bottom: 4),
+                child: Text('© OpenStreetMap · CARTO',
+                    style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
+              ),
+            ),
+          ),
+
           // Top: search + live count
           SafeArea(
             child: Padding(
@@ -223,7 +242,28 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SearchBox(api: _api, stations: _stations, onPick: _flyTo),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: SearchBox(api: _api, stations: _stations, onPick: _flyTo),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _settingsOpen = !_settingsOpen;
+                          _selectedStation = null;
+                          _followTrainId = null;
+                        }),
+                        child: GlassPanel(
+                          padding: const EdgeInsets.all(12),
+                          borderRadius: const BorderRadius.all(Radius.circular(30)),
+                          child: Icon(Icons.settings_rounded,
+                              color: _settingsOpen ? const Color(0xFF0A6CB0) : _ink),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   GlassPanel(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -308,7 +348,10 @@ class _MapScreenState extends State<MapScreen> {
   Widget _panelContent() {
     final Widget? inner;
     final Key key;
-    if (_followTrainId != null) {
+    if (_settingsOpen) {
+      inner = SingleChildScrollView(child: _settingsContent());
+      key = const ValueKey('settings');
+    } else if (_followTrainId != null) {
       inner = _followContent();
       key = const ValueKey('follow');
     } else if (_selectedStation != null) {
@@ -327,9 +370,6 @@ class _MapScreenState extends State<MapScreen> {
     } else if (_tab == 3) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
-    } else if (_tab == 4) {
-      inner = SingleChildScrollView(child: _settingsContent());
-      key = const ValueKey('settings');
     } else {
       return const SizedBox.shrink(key: ValueKey('none'));
     }
@@ -496,7 +536,18 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const StripeHeader(icon: Icons.settings_rounded, title: 'Settings'),
+        StripeHeader(
+          icon: Icons.settings_rounded,
+          title: 'Settings',
+          trailing: GestureDetector(
+            onTap: () => setState(() => _settingsOpen = false),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), shape: BoxShape.circle),
+              child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         const Row(children: [
           Icon(Icons.layers_rounded, color: _inkSoft, size: 18),
@@ -512,7 +563,62 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ],
         ),
+        const SizedBox(height: 20),
+        _aboutSection(),
       ],
+    );
+  }
+
+  Widget _aboutSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Row(children: [
+          Icon(Icons.info_outline_rounded, color: _inkSoft, size: 18),
+          SizedBox(width: 6),
+          Text('About & credits', style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+        ]),
+        const SizedBox(height: 10),
+        Text(disclaimer, style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.4)),
+        const SizedBox(height: 14),
+        for (final (label, source) in credits)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+                Text(source, style: const TextStyle(color: _inkSoft, fontSize: 12)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 6),
+        _legalRow('Privacy Policy', privacyPolicy),
+        _legalRow('Terms of Use', termsOfUse),
+        const SizedBox(height: 8),
+        Text('$appName · v$appVersion',
+            style: const TextStyle(color: _inkSoft, fontSize: 11)),
+      ],
+    );
+  }
+
+  Widget _legalRow(String title, String body) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => LegalScreen(title: title, body: body)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(title, style: const TextStyle(color: _ink, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: _inkSoft, size: 20),
+          ],
+        ),
+      ),
     );
   }
 
@@ -573,7 +679,6 @@ class _MapScreenState extends State<MapScreen> {
                   _navItem(Icons.directions_subway_rounded, 'Trains', 1),
                   _navItem(Icons.pin_drop_rounded, 'Stations', 2),
                   _navItem(Icons.info_rounded, 'Info', 3),
-                  _navItem(Icons.settings_rounded, 'Settings', 4),
                 ],
               ),
             ),
@@ -584,12 +689,16 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _navItem(IconData icon, String label, int index) {
-    final selected = _tab == index && _selectedStation == null && _followTrainId == null;
+    final selected = _tab == index &&
+        _selectedStation == null &&
+        _followTrainId == null &&
+        !_settingsOpen;
     return GestureDetector(
       onTap: () => setState(() {
         _tab = index;
         _selectedStation = null;
         _followTrainId = null;
+        _settingsOpen = false;
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -624,6 +733,7 @@ class _MapScreenState extends State<MapScreen> {
         onTap: () => setState(() {
           _selectedStation = s;
           _followTrainId = null;
+          _settingsOpen = false;
           _tab = 0;
         }),
         child: Center(
@@ -659,35 +769,88 @@ class _MapScreenState extends State<MapScreen> {
   Marker _trainMarker(TrainPosition t) {
     final color = Color(lineColors[t.line] ?? 0xFFFFFFFF);
     final followed = t.trainId == _followTrainId;
+    final box = followed ? 50.0 : 40.0;
+    final dot = followed ? 34.0 : 26.0;
     return Marker(
       point: t.pos,
-      width: followed ? 44 : 32,
-      height: followed ? 44 : 32,
+      width: box,
+      height: box,
       child: GestureDetector(
         onTap: () => _followTrain(t),
         child: Tooltip(
           message: '${t.trainId} → ${t.destinoName}\n'
               'next: ${t.nextStopName} in ${(t.etaSeconds / 60).floor()}:'
               '${(t.etaSeconds % 60).round().toString().padLeft(2, '0')}',
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: followed ? 4 : 3),
-              boxShadow: followed
-                  ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 14, spreadRadius: 2)]
-                  : [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
-            ),
-            padding: EdgeInsets.all(followed ? 4 : 3),
-            child: Image.asset(
-              'assets/icons/metro.png',
-              errorBuilder: (_, __, ___) =>
-                  Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // direction arrow, orbiting the marker (bearing: 0 = north)
+              Transform.rotate(
+                angle: t.bearing * math.pi / 180,
+                child: SizedBox(
+                  width: box,
+                  height: box,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: CustomPaint(
+                      size: Size(followed ? 14 : 11, followed ? 11 : 8),
+                      painter: _ArrowPainter(color),
+                    ),
+                  ),
+                ),
+              ),
+              // the round train icon
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: dot,
+                height: dot,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: followed ? 4 : 3),
+                  boxShadow: followed
+                      ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 14, spreadRadius: 2)]
+                      : [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
+                ),
+                padding: EdgeInsets.all(followed ? 4 : 3),
+                child: Image.asset(
+                  'assets/icons/metro.png',
+                  errorBuilder: (_, __, ___) =>
+                      Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+/// Small filled triangle (with a white outline for contrast) pointing up;
+/// rotated by a train's bearing to show its direction of travel.
+class _ArrowPainter extends CustomPainter {
+  final Color color;
+  const _ArrowPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowPainter old) => old.color != color;
 }
