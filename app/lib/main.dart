@@ -112,6 +112,7 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _userLocation;
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
+  bool _settingsOpen = false;
   Timer? _linesTimer;
 
   @override
@@ -141,6 +142,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _followTrainId = t.trainId;
       _selectedStation = null;
+      _settingsOpen = false;
     });
     _mapController.move(t.pos, 15);
   }
@@ -181,7 +183,10 @@ class _MapScreenState extends State<MapScreen> {
 
   void _flyTo(LatLng target, Station? station) {
     _mapController.move(target, station != null ? 15 : 14);
-    if (station != null) setState(() => _selectedStation = station);
+    setState(() {
+      _settingsOpen = false;
+      if (station != null) _selectedStation = station;
+    });
   }
 
   @override
@@ -223,7 +228,28 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SearchBox(api: _api, stations: _stations, onPick: _flyTo),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: SearchBox(api: _api, stations: _stations, onPick: _flyTo),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _settingsOpen = !_settingsOpen;
+                          _selectedStation = null;
+                          _followTrainId = null;
+                        }),
+                        child: GlassPanel(
+                          padding: const EdgeInsets.all(12),
+                          borderRadius: const BorderRadius.all(Radius.circular(30)),
+                          child: Icon(Icons.settings_rounded,
+                              color: _settingsOpen ? const Color(0xFF0A6CB0) : _ink),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   GlassPanel(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -308,7 +334,10 @@ class _MapScreenState extends State<MapScreen> {
   Widget _panelContent() {
     final Widget? inner;
     final Key key;
-    if (_followTrainId != null) {
+    if (_settingsOpen) {
+      inner = SingleChildScrollView(child: _settingsContent());
+      key = const ValueKey('settings');
+    } else if (_followTrainId != null) {
       inner = _followContent();
       key = const ValueKey('follow');
     } else if (_selectedStation != null) {
@@ -327,9 +356,6 @@ class _MapScreenState extends State<MapScreen> {
     } else if (_tab == 3) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
-    } else if (_tab == 4) {
-      inner = SingleChildScrollView(child: _settingsContent());
-      key = const ValueKey('settings');
     } else {
       return const SizedBox.shrink(key: ValueKey('none'));
     }
@@ -496,7 +522,18 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const StripeHeader(icon: Icons.settings_rounded, title: 'Settings'),
+        StripeHeader(
+          icon: Icons.settings_rounded,
+          title: 'Settings',
+          trailing: GestureDetector(
+            onTap: () => setState(() => _settingsOpen = false),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.05), shape: BoxShape.circle),
+              child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         const Row(children: [
           Icon(Icons.layers_rounded, color: _inkSoft, size: 18),
@@ -573,7 +610,6 @@ class _MapScreenState extends State<MapScreen> {
                   _navItem(Icons.directions_subway_rounded, 'Trains', 1),
                   _navItem(Icons.pin_drop_rounded, 'Stations', 2),
                   _navItem(Icons.info_rounded, 'Info', 3),
-                  _navItem(Icons.settings_rounded, 'Settings', 4),
                 ],
               ),
             ),
@@ -584,12 +620,16 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _navItem(IconData icon, String label, int index) {
-    final selected = _tab == index && _selectedStation == null && _followTrainId == null;
+    final selected = _tab == index &&
+        _selectedStation == null &&
+        _followTrainId == null &&
+        !_settingsOpen;
     return GestureDetector(
       onTap: () => setState(() {
         _tab = index;
         _selectedStation = null;
         _followTrainId = null;
+        _settingsOpen = false;
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -624,6 +664,7 @@ class _MapScreenState extends State<MapScreen> {
         onTap: () => setState(() {
           _selectedStation = s;
           _followTrainId = null;
+          _settingsOpen = false;
           _tab = 0;
         }),
         child: Center(
