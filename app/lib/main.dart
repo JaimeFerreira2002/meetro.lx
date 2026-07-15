@@ -59,21 +59,26 @@ class _RootState extends State<_Root> {
   }
 }
 
-enum MapStyle { standard, light, dark }
+enum MapStyle { cozy, minimal, light, dark }
 
 extension MapStyleX on MapStyle {
+  // All keyless: CARTO raster basemaps (© OpenStreetMap contributors © CARTO).
   String get url => switch (this) {
-        MapStyle.standard => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        MapStyle.cozy => 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+        MapStyle.minimal =>
+          'https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png',
         MapStyle.light => 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
         MapStyle.dark => 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
       };
   String get label => switch (this) {
-        MapStyle.standard => 'Standard',
+        MapStyle.cozy => 'Cozy',
+        MapStyle.minimal => 'Minimal',
         MapStyle.light => 'Light',
         MapStyle.dark => 'Dark',
       };
   IconData get icon => switch (this) {
-        MapStyle.standard => Icons.map_rounded,
+        MapStyle.cozy => Icons.local_cafe_rounded,
+        MapStyle.minimal => Icons.layers_clear_rounded,
         MapStyle.light => Icons.light_mode_rounded,
         MapStyle.dark => Icons.dark_mode_rounded,
       };
@@ -97,7 +102,7 @@ class _MapScreenState extends State<MapScreen> {
   final _mapController = MapController();
 
   int _tab = 0; // 0 map, 1 stations, 2 info, 3 settings
-  MapStyle _style = MapStyle.standard;
+  MapStyle _style = MapStyle.cozy;
 
   List<TrackLine> _track = [];
   List<Station> _stations = [];
