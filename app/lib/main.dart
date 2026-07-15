@@ -17,6 +17,7 @@ import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
 import 'stations_panel.dart';
+import 'trains_panel.dart';
 
 void main() => runApp(const MetroApp());
 
@@ -101,7 +102,7 @@ class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
   final _mapController = MapController();
 
-  int _tab = 0; // 0 map, 1 stations, 2 info, 3 settings
+  int _tab = 0; // 0 map, 1 trains, 2 stations, 3 info, 4 settings
   MapStyle _style = MapStyle.cozy;
 
   List<TrackLine> _track = [];
@@ -318,12 +319,15 @@ class _MapScreenState extends State<MapScreen> {
       );
       key = const ValueKey('station');
     } else if (_tab == 1) {
+      inner = TrainsList(trains: _trains, onSelect: _followTrain);
+      key = const ValueKey('trains');
+    } else if (_tab == 2) {
       inner = StationsList(api: _api, stations: _stations);
       key = const ValueKey('stations');
-    } else if (_tab == 2) {
+    } else if (_tab == 3) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
-    } else if (_tab == 3) {
+    } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _settingsContent());
       key = const ValueKey('settings');
     } else {
@@ -566,9 +570,10 @@ class _MapScreenState extends State<MapScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _navItem(Icons.map_rounded, 'Map', 0),
-                  _navItem(Icons.pin_drop_rounded, 'Stations', 1),
-                  _navItem(Icons.info_rounded, 'Info', 2),
-                  _navItem(Icons.settings_rounded, 'Settings', 3),
+                  _navItem(Icons.directions_subway_rounded, 'Trains', 1),
+                  _navItem(Icons.pin_drop_rounded, 'Stations', 2),
+                  _navItem(Icons.info_rounded, 'Info', 3),
+                  _navItem(Icons.settings_rounded, 'Settings', 4),
                 ],
               ),
             ),
@@ -588,7 +593,7 @@ class _MapScreenState extends State<MapScreen> {
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? _ink : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
