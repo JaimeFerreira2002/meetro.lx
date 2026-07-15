@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 
 import 'glass.dart';
+import 'legal.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
@@ -220,6 +221,18 @@ class _MapScreenState extends State<MapScreen> {
               if (_userLocation != null)
                 MarkerLayer(markers: [_userMarker(_userLocation!)]),
             ],
+          ),
+
+          // Map tile attribution (required by OSM/CARTO)
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10, bottom: 4),
+                child: Text('© OpenStreetMap · CARTO',
+                    style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
+              ),
+            ),
           ),
 
           // Top: search + live count
@@ -550,7 +563,62 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ],
         ),
+        const SizedBox(height: 20),
+        _aboutSection(),
       ],
+    );
+  }
+
+  Widget _aboutSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Row(children: [
+          Icon(Icons.info_outline_rounded, color: _inkSoft, size: 18),
+          SizedBox(width: 6),
+          Text('About & credits', style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+        ]),
+        const SizedBox(height: 10),
+        Text(disclaimer, style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.4)),
+        const SizedBox(height: 14),
+        for (final (label, source) in credits)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w700)),
+                Text(source, style: const TextStyle(color: _inkSoft, fontSize: 12)),
+              ],
+            ),
+          ),
+        const SizedBox(height: 6),
+        _legalRow('Privacy Policy', privacyPolicy),
+        _legalRow('Terms of Use', termsOfUse),
+        const SizedBox(height: 8),
+        Text('$appName · v$appVersion',
+            style: const TextStyle(color: _inkSoft, fontSize: 11)),
+      ],
+    );
+  }
+
+  Widget _legalRow(String title, String body) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => LegalScreen(title: title, body: body)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(title, style: const TextStyle(color: _ink, fontWeight: FontWeight.w600)),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: _inkSoft, size: 20),
+          ],
+        ),
+      ),
     );
   }
 
