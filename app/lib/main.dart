@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 
+import 'ar_tunnels.dart';
 import 'glass.dart';
 import 'legal.dart';
 import 'line_stripe.dart';
@@ -296,19 +297,35 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // Home / my-location button
+          // Right-side buttons: AR + my-location
           SafeArea(
             child: Align(
               alignment: Alignment.bottomRight,
               child: Padding(
                 padding: const EdgeInsets.only(right: 16, bottom: 96),
-                child: GestureDetector(
-                  onTap: _goToMyLocation,
-                  child: const GlassPanel(
-                    padding: EdgeInsets.all(14),
-                    borderRadius: BorderRadius.all(Radius.circular(30)),
-                    child: Icon(Icons.my_location_rounded, color: _ink),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => ArTunnelsScreen(api: _api)),
+                      ),
+                      child: const GlassPanel(
+                        padding: EdgeInsets.all(14),
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        child: Icon(Icons.view_in_ar_rounded, color: _ink),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _goToMyLocation,
+                      child: const GlassPanel(
+                        padding: EdgeInsets.all(14),
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        child: Icon(Icons.my_location_rounded, color: _ink),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
