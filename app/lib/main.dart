@@ -2,6 +2,7 @@
 /// This is also the app's fallback/indoor mode; the AR camera view (Phase 2)
 /// is a separate native platform-view screen that reuses [MetroApi].
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -700,35 +701,88 @@ class _MapScreenState extends State<MapScreen> {
   Marker _trainMarker(TrainPosition t) {
     final color = Color(lineColors[t.line] ?? 0xFFFFFFFF);
     final followed = t.trainId == _followTrainId;
+    final box = followed ? 50.0 : 40.0;
+    final dot = followed ? 34.0 : 26.0;
     return Marker(
       point: t.pos,
-      width: followed ? 44 : 32,
-      height: followed ? 44 : 32,
+      width: box,
+      height: box,
       child: GestureDetector(
         onTap: () => _followTrain(t),
         child: Tooltip(
           message: '${t.trainId} → ${t.destinoName}\n'
               'next: ${t.nextStopName} in ${(t.etaSeconds / 60).floor()}:'
               '${(t.etaSeconds % 60).round().toString().padLeft(2, '0')}',
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: followed ? 4 : 3),
-              boxShadow: followed
-                  ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 14, spreadRadius: 2)]
-                  : [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
-            ),
-            padding: EdgeInsets.all(followed ? 4 : 3),
-            child: Image.asset(
-              'assets/icons/metro.png',
-              errorBuilder: (_, __, ___) =>
-                  Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-            ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // direction arrow, orbiting the marker (bearing: 0 = north)
+              Transform.rotate(
+                angle: t.bearing * math.pi / 180,
+                child: SizedBox(
+                  width: box,
+                  height: box,
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: CustomPaint(
+                      size: Size(followed ? 14 : 11, followed ? 11 : 8),
+                      painter: _ArrowPainter(color),
+                    ),
+                  ),
+                ),
+              ),
+              // the round train icon
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: dot,
+                height: dot,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: followed ? 4 : 3),
+                  boxShadow: followed
+                      ? [BoxShadow(color: color.withOpacity(0.6), blurRadius: 14, spreadRadius: 2)]
+                      : [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
+                ),
+                padding: EdgeInsets.all(followed ? 4 : 3),
+                child: Image.asset(
+                  'assets/icons/metro.png',
+                  errorBuilder: (_, __, ___) =>
+                      Container(decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
+
+/// Small filled triangle (with a white outline for contrast) pointing up;
+/// rotated by a train's bearing to show its direction of travel.
+class _ArrowPainter extends CustomPainter {
+  final Color color;
+  const _ArrowPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowPainter old) => old.color != color;
 }
