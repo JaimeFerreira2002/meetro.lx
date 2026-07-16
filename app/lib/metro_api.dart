@@ -1,6 +1,7 @@
 /// Client for the interpolation service. Shared by the 2D map now and the AR
 /// view later — the app never talks to the Metro API directly.
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
@@ -10,6 +11,10 @@ class MetroApi {
   /// Override at build time: --dart-define=API_BASE=http://<host>:8000
   /// Android emulator reaches the host via 10.0.2.2; iOS simulator via localhost.
   static const base = String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:8000');
+
+  /// Whether the live stream is currently delivering data. Drives the offline
+  /// banner and lets panels tell "no trains" apart from "can't reach server".
+  final ValueNotifier<bool> connected = ValueNotifier(false);
 
   /// Retries until the server answers, so app/server launch order doesn't matter.
   Future<List<Station>> stations() async {
@@ -97,12 +102,14 @@ class MetroApi {
         await for (final line in lines) {
           if (line.startsWith('data:')) {
             final data = jsonDecode(line.substring(5).trim()) as List;
+            connected.value = true;
             yield data.map((e) => TrainPosition.fromJson(e as Map<String, dynamic>)).toList();
           }
         }
       } catch (_) {
         // server unreachable or stream dropped — fall through and retry
       }
+      connected.value = false; // stream ended or failed
       await Future.delayed(const Duration(seconds: 2));
     }
   }

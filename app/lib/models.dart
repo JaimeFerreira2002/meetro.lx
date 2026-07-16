@@ -1,12 +1,17 @@
 /// Wire-contract models — mirror server/app/models.py.
 import 'package:latlong2/latlong.dart';
 
+/// Official Metro Lisboa line colours — the single source of truth for line
+/// colour anywhere in the app (markers, stripes, track polylines, splash).
 const lineColors = <String, int>{
-  'Amarela': 0xFFF2C200,
-  'Azul': 0xFF0A6CB0,
-  'Verde': 0xFF009A44,
-  'Vermelha': 0xFFD2222D,
+  'Amarela': 0xFFFDD900,
+  'Azul': 0xFF326DC9,
+  'Verde': 0xFF00D8B0,
+  'Vermelha': 0xFFED0E69,
 };
+
+/// Favourite-star gold (matches the yellow line). ARGB int, like [lineColors].
+const starColor = 0xFFFDD900;
 
 /// Display order for the four lines.
 const lineOrder = <String>['Azul', 'Amarela', 'Verde', 'Vermelha'];
@@ -38,9 +43,12 @@ class TrackLine {
   factory TrackLine.fromFeature(Map<String, dynamic> f) {
     final props = f['properties'] as Map<String, dynamic>;
     final coords = f['geometry']['coordinates'] as List;
+    final line = props['line'] as String? ?? '';
     return TrackLine(
-      line: props['line'] as String? ?? '',
-      color: _hexToArgb(props['colour'] as String?),
+      line: line,
+      // Prefer the official palette so track lines match the markers; the
+      // GeoJSON's `colour` is OpenStreetMap's own (different) shade.
+      color: lineColors[line] ?? _hexToArgb(props['colour'] as String?),
       // GeoJSON is [lon, lat]
       points: coords
           .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))

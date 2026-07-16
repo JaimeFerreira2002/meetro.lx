@@ -9,14 +9,15 @@ class LineStripe extends StatelessWidget {
   final double height;
   final double gap;
   final double? width; // null = expand to parent width
+  final List<String>? lines; // null = all four; pass a subset to scope it
 
-  const LineStripe({super.key, this.height = 4, this.gap = 3, this.width});
+  const LineStripe({super.key, this.height = 4, this.gap = 3, this.width, this.lines});
 
   @override
   Widget build(BuildContext context) {
     final stripe = Row(
       children: [
-        for (final (i, line) in lineOrder.indexed) ...[
+        for (final (i, line) in (lines ?? lineOrder).indexed) ...[
           if (i > 0) SizedBox(width: gap),
           Expanded(
             child: Container(
@@ -39,8 +40,15 @@ class StripeHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final Widget? trailing;
+  final List<String>? lines; // null = all four; scope it to a train/station's lines
 
-  const StripeHeader({super.key, required this.icon, required this.title, this.trailing});
+  const StripeHeader({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.trailing,
+    this.lines,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +69,7 @@ class StripeHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        const LineStripe(),
+        LineStripe(lines: lines),
       ],
     );
   }

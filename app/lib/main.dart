@@ -5,18 +5,19 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'glass.dart';
 import 'legal.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'nearby_panel.dart';
+import 'panel.dart';
 import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
@@ -106,7 +107,7 @@ class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
   final _mapController = MapController();
 
-  int _tab = 0; // 0 map, 1 trains, 2 stations, 3 info, 4 settings
+  int _tab = 0; // 0 map, 1 nearby, 2 trains, 3 stations, 4 info (settings = gear)
   MapStyle _style = MapStyle.cozy;
 
   List<TrackLine> _track = [];
@@ -117,8 +118,10 @@ class _MapScreenState extends State<MapScreen> {
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
   bool _settingsOpen = false;
+  bool _panelMinimized = false;
   bool _didAutoOpenNearby = false;
   Set<String> _favorites = {}; // favourited stop_ids, persisted locally
+  DateTime? _lastUpdate; // when the last live snapshot arrived
   Timer? _linesTimer;
 
   @override
@@ -127,6 +130,7 @@ class _MapScreenState extends State<MapScreen> {
     _api.track().then((t) => setState(() => _track = t));
     _api.stations().then((s) => setState(() => _stations = s));
     _api.trainStream().listen(_onTrains);
+    _api.connected.addListener(_onConnectionChanged);
     _refreshLines();
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
     _initLocation();
@@ -144,6 +148,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _toggleFavorite(String stopId) async {
+    HapticFeedback.selectionClick();
     final next = {..._favorites};
     next.contains(stopId) ? next.remove(stopId) : next.add(stopId);
     setState(() => _favorites = next);
@@ -151,8 +156,35 @@ class _MapScreenState extends State<MapScreen> {
     await prefs.setStringList(_favKey, next.toList());
   }
 
+  void _onConnectionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _online => _api.connected.value;
+
+  Widget _offlineBanner() => Panel(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: _warn, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              _lastUpdate == null
+                  ? "Can't reach the server · retrying…"
+                  : 'No connection · showing last known',
+              style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+
   void _onTrains(List<TrainPosition> t) {
-    setState(() => _trains = t);
+    setState(() {
+      _trains = t;
+      _lastUpdate = DateTime.now();
+    });
     // keep the camera centered on the followed train as it moves
     final id = _followTrainId;
     if (id != null) {
@@ -164,10 +196,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _followTrain(TrainPosition t) {
+    HapticFeedback.selectionClick();
     setState(() {
       _followTrainId = t.trainId;
       _selectedStation = null;
       _settingsOpen = false;
+      _panelMinimized = false;
     });
     _mapController.move(t.pos, 15);
   }
@@ -180,10 +214,31 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _linesTimer?.cancel();
+    _api.connected.removeListener(_onConnectionChanged);
     super.dispose();
   }
 
   int _countFor(String line) => _trains.where((t) => t.line == line).length;
+
+  // ---- map zoom ----
+
+  static const _initialZoom = 12.0;
+  static const _stationZoom = 13.0; // below this, station dots are hidden
+  double _zoom = _initialZoom;
+
+  bool get _showStations => _zoom >= _stationZoom;
+
+  void _onMapMoved(MapCamera camera, bool hasGesture) {
+    final was = _showStations;
+    _zoom = camera.zoom;
+    // Only rebuild when we cross the threshold (this fires on every frame of a
+    // pan/zoom), and defer it — onPositionChanged can fire during layout.
+    if (_showStations != was) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
 
   // ---- location ----
 
@@ -251,7 +306,10 @@ class _MapScreenState extends State<MapScreen> {
     _mapController.move(target, station != null ? 15 : 14);
     setState(() {
       _settingsOpen = false;
-      if (station != null) _selectedStation = station;
+      if (station != null) {
+        _selectedStation = station;
+        _panelMinimized = false;
+      }
     });
   }
 
@@ -262,9 +320,10 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: const MapOptions(
-              initialCenter: LatLng(38.728, -9.145),
-              initialZoom: 12,
+            options: MapOptions(
+              initialCenter: const LatLng(38.728, -9.145),
+              initialZoom: _initialZoom,
+              onPositionChanged: _onMapMoved,
             ),
             children: [
               TileLayer(
@@ -280,21 +339,51 @@ class _MapScreenState extends State<MapScreen> {
                         ))
                     .toList(),
               ),
-              MarkerLayer(markers: _stations.map(_stationMarker).toList()),
+              // station dots would clutter the city-wide view — only show them
+              // once you're zoomed in enough for them to be useful
+              if (_showStations)
+                MarkerLayer(markers: _stations.map(_stationMarker).toList()),
               MarkerLayer(markers: _trains.map(_trainMarker).toList()),
               if (_userLocation != null)
                 MarkerLayer(markers: [_userMarker(_userLocation!)]),
             ],
           ),
 
-          // Map tile attribution (required by OSM/CARTO)
+          // Always-visible data credit + tile attribution (required by OSM/CARTO).
+          // Sits above the nav bar so the centred nav pill can't cover it.
           Align(
             alignment: Alignment.bottomLeft,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.only(left: 10, bottom: 4),
-                child: Text('© OpenStreetMap · CARTO',
-                    style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
+                padding: const EdgeInsets.only(left: 12, bottom: 56),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/icons/metro.png',
+                          width: 14,
+                          height: 14,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.directions_subway_rounded,
+                              size: 12,
+                              color: Colors.black54),
+                        ),
+                        const SizedBox(width: 5),
+                        Text('Metro de Lisboa',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black.withOpacity(0.6))),
+                      ],
+                    ),
+                    Text('© OpenStreetMap · CARTO',
+                        style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
+                  ],
+                ),
               ),
             ),
           ),
@@ -314,47 +403,62 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () => setState(() {
-                          _settingsOpen = !_settingsOpen;
-                          _selectedStation = null;
-                          _followTrainId = null;
-                        }),
-                        child: GlassPanel(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _settingsOpen = !_settingsOpen;
+                            _selectedStation = null;
+                            _followTrainId = null;
+                            _panelMinimized = false;
+                          });
+                        },
+                        child: Panel(
                           padding: const EdgeInsets.all(12),
                           borderRadius: const BorderRadius.all(Radius.circular(30)),
                           child: Icon(Icons.settings_rounded,
-                              color: _settingsOpen ? const Color(0xFF0A6CB0) : _ink),
+                              color: _settingsOpen ? Color(lineColors['Azul']!) : _ink),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  GlassPanel(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    borderRadius: const BorderRadius.all(Radius.circular(18)),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.directions_subway_rounded, color: _ink, size: 20),
-                            const SizedBox(width: 8),
-                            Text('${_trains.length}',
-                                style: const TextStyle(
-                                    color: _ink, fontSize: 24, fontWeight: FontWeight.w800, height: 1)),
-                            const SizedBox(width: 6),
-                            const Text('trains live',
-                                style: TextStyle(
-                                    color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const LineStripe(width: 72, height: 3, gap: 2),
-                      ],
+                  // Only claim a count once we've actually had data — otherwise
+                  // "0 trains live" would read as "the metro isn't running".
+                  if (_lastUpdate != null)
+                    Panel(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      borderRadius: const BorderRadius.all(Radius.circular(18)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.directions_subway_rounded,
+                                  color: _online ? _ink : _inkSoft, size: 20),
+                              const SizedBox(width: 8),
+                              Text('${_trains.length}',
+                                  style: TextStyle(
+                                      color: _online ? _ink : _inkSoft,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1)),
+                              const SizedBox(width: 6),
+                              Text(_online ? 'trains live' : 'trains · last known',
+                                  style: const TextStyle(
+                                      color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const LineStripe(width: 72, height: 3, gap: 2),
+                        ],
+                      ),
                     ),
-                  ),
+                  if (!_online) ...[
+                    if (_lastUpdate != null) const SizedBox(height: 8),
+                    _offlineBanner(),
+                  ],
                 ],
               ),
             ),
@@ -365,10 +469,10 @@ class _MapScreenState extends State<MapScreen> {
             child: Align(
               alignment: Alignment.bottomRight,
               child: Padding(
-                padding: const EdgeInsets.only(right: 16, bottom: 96),
+                padding: const EdgeInsets.only(right: 16, bottom: 80),
                 child: GestureDetector(
                   onTap: _goToMyLocation,
-                  child: const GlassPanel(
+                  child: const Panel(
                     padding: EdgeInsets.all(14),
                     borderRadius: BorderRadius.all(Radius.circular(30)),
                     child: Icon(Icons.my_location_rounded, color: _ink),
@@ -383,7 +487,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 320),
                   switchInCurve: Curves.easeOutCubic,
@@ -412,12 +516,18 @@ class _MapScreenState extends State<MapScreen> {
   Widget _panelContent() {
     final Widget? inner;
     final Key key;
+    final String title; // shown on the minimized pill
+    var glow = Colors.white; // panel halo — tinted for a followed train
     if (_settingsOpen) {
       inner = SingleChildScrollView(child: _settingsContent());
       key = const ValueKey('settings');
+      title = 'Settings';
     } else if (_followTrainId != null) {
       inner = _followContent();
       key = const ValueKey('follow');
+      title = 'Train $_followTrainId';
+      final match = _trains.where((t) => t.trainId == _followTrainId);
+      if (match.isNotEmpty) glow = Color(lineColors[match.first.line] ?? 0xFFFFFFFF);
     } else if (_selectedStation != null) {
       inner = StationDetailsPanel(
         api: _api,
@@ -427,6 +537,7 @@ class _MapScreenState extends State<MapScreen> {
         onToggleFavorite: () => _toggleFavorite(_selectedStation!.stopId),
       );
       key = const ValueKey('station');
+      title = _selectedStation!.name;
     } else if (_tab == 1) {
       inner = _userLocation == null
           ? _nearbyPrompt()
@@ -439,24 +550,93 @@ class _MapScreenState extends State<MapScreen> {
               onToggleFavorite: _toggleFavorite,
             );
       key = const ValueKey('nearby');
+      title = 'Nearby';
     } else if (_tab == 2) {
       inner = TrainsList(trains: _trains, onSelect: _followTrain);
       key = const ValueKey('trains');
+      title = 'Trains';
     } else if (_tab == 3) {
       inner = StationsList(api: _api, stations: _stations);
       key = const ValueKey('stations');
+      title = 'Stations';
     } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
+      title = 'Info';
     } else {
       return const SizedBox.shrink(key: ValueKey('none'));
     }
+
+    // Minimized: collapse to a pill that restores the panel on tap.
+    if (_panelMinimized) {
+      return GestureDetector(
+        key: const ValueKey('minimized'),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _panelMinimized = false);
+        },
+        child: Panel(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          glowColor: glow,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.keyboard_arrow_up_rounded, color: _inkSoft, size: 20),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ConstrainedBox(
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-      child: GlassPanel(child: inner),
+      child: Panel(
+        glowColor: glow,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _grabber(),
+            Flexible(child: inner),
+          ],
+        ),
+      ),
     );
   }
+
+  void _minimizePanel() {
+    HapticFeedback.lightImpact();
+    setState(() => _panelMinimized = true);
+  }
+
+  /// Drag-handle at the top of a panel: tap or swipe down to minimize.
+  Widget _grabber() => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _minimizePanel,
+        onVerticalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) > 0) _minimizePanel();
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(bottom: 10),
+          alignment: Alignment.center,
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      );
 
   Widget _followContent() {
     final matches = _trains.where((t) => t.trainId == _followTrainId).toList();
@@ -487,7 +667,11 @@ class _MapScreenState extends State<MapScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         StripeHeader(
-            icon: Icons.directions_subway_rounded, title: 'Train ${t.trainId}', trailing: close),
+          icon: Icons.directions_subway_rounded,
+          title: 'Train ${t.trainId}',
+          trailing: close,
+          lines: [t.line], // this train's own line, not all four
+        ),
         const SizedBox(height: 10),
         Row(children: [
           Container(
@@ -533,17 +717,35 @@ class _MapScreenState extends State<MapScreen> {
       children: [
         const StripeHeader(icon: Icons.info_rounded, title: 'Service status'),
         const SizedBox(height: 12),
+        if (!_online)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              const Icon(Icons.cloud_off_rounded, color: _warn, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    _lastUpdate == null
+                        ? "Can't reach the server — retrying…"
+                        : 'No connection — the figures below are the last known.',
+                    style: const TextStyle(color: _warn, fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
+            ]),
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text('${_trains.length}',
-                style: const TextStyle(
-                    color: _ink, fontSize: 44, fontWeight: FontWeight.w800, height: 1)),
+                style: TextStyle(
+                    color: _online ? _ink : _inkSoft,
+                    fontSize: 44,
+                    fontWeight: FontWeight.w800,
+                    height: 1)),
             const SizedBox(width: 8),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 6),
-              child: Text('trains circulating',
-                  style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(_online ? 'trains circulating' : 'trains (last known)',
+                  style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
@@ -704,7 +906,10 @@ class _MapScreenState extends State<MapScreen> {
     final selected = _style == s;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _style = s),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _style = s);
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           alignment: Alignment.center,
@@ -746,16 +951,17 @@ class _MapScreenState extends State<MapScreen> {
             child: Opacity(opacity: v.clamp(0.0, 1.0), child: child),
           ),
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: GlassPanel(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Panel(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               borderRadius: const BorderRadius.all(Radius.circular(30)),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _navItem(Icons.map_rounded, 'Map', 0),
+                  // Map sits in the middle as the standout "home" button
                   _navItem(Icons.near_me_rounded, 'Nearby', 1),
                   _navItem(Icons.directions_subway_rounded, 'Trains', 2),
+                  _mapNavButton(),
                   _navItem(Icons.pin_drop_rounded, 'Stations', 3),
                   _navItem(Icons.info_rounded, 'Info', 4),
                 ],
@@ -767,18 +973,58 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  /// The centre "home" button — always dark-filled so it stands out from the
+  /// other tabs, ringed in blue when the map is the active view.
+  Widget _mapNavButton() {
+    final selected =
+        _tab == 0 && _selectedStation == null && _followTrainId == null && !_settingsOpen;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _tab = 0;
+          _selectedStation = null;
+          _followTrainId = null;
+          _settingsOpen = false;
+          _panelMinimized = false;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: _ink,
+          shape: BoxShape.circle,
+          border: selected ? Border.all(color: Color(lineColors['Azul']!), width: 2.5) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.map_rounded, color: Colors.white, size: 24),
+      ),
+    );
+  }
+
   Widget _navItem(IconData icon, String label, int index) {
     final selected = _tab == index &&
         _selectedStation == null &&
         _followTrainId == null &&
         !_settingsOpen;
     return GestureDetector(
-      onTap: () => setState(() {
-        _tab = index;
-        _selectedStation = null;
-        _followTrainId = null;
-        _settingsOpen = false;
-      }),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _tab = index;
+          _selectedStation = null;
+          _followTrainId = null;
+          _settingsOpen = false;
+          _panelMinimized = false; // picking a tab restores the panel
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
@@ -809,12 +1055,16 @@ class _MapScreenState extends State<MapScreen> {
       width: 22,
       height: 22,
       child: GestureDetector(
-        onTap: () => setState(() {
-          _selectedStation = s;
-          _followTrainId = null;
-          _settingsOpen = false;
-          _tab = 0;
-        }),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _selectedStation = s;
+            _followTrainId = null;
+            _settingsOpen = false;
+            _panelMinimized = false;
+            _tab = 0;
+          });
+        },
         child: Center(
           child: Container(
             width: 14,

@@ -177,7 +177,7 @@ class _NearbyPanelState extends State<NearbyPanel> {
                     child: Icon(
                       fav ? Icons.star_rounded : Icons.star_outline_rounded,
                       size: 20,
-                      color: fav ? const Color(0xFFF2C200) : Colors.black26,
+                      color: fav ? const Color(starColor) : Colors.black26,
                     ),
                   ),
                 ),
@@ -191,7 +191,11 @@ class _NearbyPanelState extends State<NearbyPanel> {
                     SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
               )
             else if (arrivals.isEmpty)
-              const Text('No upcoming trains', style: TextStyle(color: Colors.black38, fontSize: 12))
+              Text(
+                  widget.api.connected.value
+                      ? 'No upcoming trains'
+                      : "Can't reach the server",
+                  style: const TextStyle(color: Colors.black38, fontSize: 12))
             else
               for (final a in arrivals.take(3))
                 Padding(

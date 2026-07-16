@@ -97,12 +97,13 @@ class _StationsListState extends State<StationsList> {
       );
     }
     if (arrivals.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 12),
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text('No upcoming trains',
-              style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500)),
+          child: Text(
+              widget.api.connected.value ? 'No upcoming trains' : "Can't reach the server",
+              style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w500)),
         ),
       );
     }

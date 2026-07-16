@@ -21,7 +21,8 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const LINE_COLORS = { Amarela: "#f2c200", Azul: "#0a6cb0", Verde: "#009a44", Vermelha: "#d2222d" };
+    // Official Metro Lisboa line colours (kept in sync with app/lib/models.dart)
+    const LINE_COLORS = { Amarela: "#fdd900", Azul: "#326dc9", Verde: "#00d8b0", Vermelha: "#ed0e69" };
     const map = L.map("map").setView([38.728, -9.145], 12);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap", maxZoom: 19,
@@ -30,7 +31,11 @@
     // Track polylines (curved OSM geometry)
     fetch("/track").then(r => r.json()).then(gj => {
       L.geoJSON(gj, {
-        style: f => ({ color: f.properties.colour || "#888", weight: 3, opacity: .55 }),
+        // prefer the official palette; the GeoJSON's `colour` is OSM's own shade
+        style: f => ({
+          color: LINE_COLORS[f.properties.line] || f.properties.colour || "#888",
+          weight: 3, opacity: .55,
+        }),
       }).addTo(map);
     });
 
