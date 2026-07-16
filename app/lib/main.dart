@@ -15,6 +15,7 @@ import 'legal.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'nearby_panel.dart';
 import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
@@ -115,6 +116,7 @@ class _MapScreenState extends State<MapScreen> {
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
   bool _settingsOpen = false;
+  bool _didAutoOpenNearby = false;
   Timer? _linesTimer;
 
   @override
@@ -125,7 +127,7 @@ class _MapScreenState extends State<MapScreen> {
     _api.trainStream().listen(_onTrains);
     _refreshLines();
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
-    _requestLocationPermission();
+    _initLocation();
   }
 
   void _onTrains(List<TrainPosition> t) {
@@ -164,12 +166,53 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---- location ----
 
-  Future<void> _requestLocationPermission() async {
+  Future<void> _initLocation() async {
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission(); // triggers the OS pop-up
     }
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
+    if (!await Geolocator.isLocationServiceEnabled()) return;
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _userLocation = LatLng(pos.latitude, pos.longitude);
+        // once per launch, surface Nearby as the opening panel
+        if (!_didAutoOpenNearby) {
+          _didAutoOpenNearby = true;
+          _tab = 1;
+        }
+      });
+    } catch (_) {
+      /* location unavailable — stay on the map */
+    }
   }
+
+  Widget _nearbyPrompt() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Row(children: [
+            Icon(Icons.near_me_rounded, color: _ink, size: 22),
+            SizedBox(width: 8),
+            Text('Nearby', style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 12),
+          Text('Enable location to see the stations closest to you and their next trains.',
+              style: TextStyle(color: _inkSoft, height: 1.4)),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _goToMyLocation,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(color: _ink, borderRadius: BorderRadius.circular(14)),
+              child: const Text('Enable location',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      );
 
   Future<void> _goToMyLocation() async {
     if (!await Geolocator.isLocationServiceEnabled()) return;
@@ -362,12 +405,22 @@ class _MapScreenState extends State<MapScreen> {
       );
       key = const ValueKey('station');
     } else if (_tab == 1) {
+      inner = _userLocation == null
+          ? _nearbyPrompt()
+          : NearbyPanel(
+              api: _api,
+              stations: _stations,
+              location: _userLocation!,
+              onTapStation: (s) => _flyTo(s.pos, s),
+            );
+      key = const ValueKey('nearby');
+    } else if (_tab == 2) {
       inner = TrainsList(trains: _trains, onSelect: _followTrain);
       key = const ValueKey('trains');
-    } else if (_tab == 2) {
+    } else if (_tab == 3) {
       inner = StationsList(api: _api, stations: _stations);
       key = const ValueKey('stations');
-    } else if (_tab == 3) {
+    } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
     } else {
@@ -676,9 +729,10 @@ class _MapScreenState extends State<MapScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _navItem(Icons.map_rounded, 'Map', 0),
-                  _navItem(Icons.directions_subway_rounded, 'Trains', 1),
-                  _navItem(Icons.pin_drop_rounded, 'Stations', 2),
-                  _navItem(Icons.info_rounded, 'Info', 3),
+                  _navItem(Icons.near_me_rounded, 'Nearby', 1),
+                  _navItem(Icons.directions_subway_rounded, 'Trains', 2),
+                  _navItem(Icons.pin_drop_rounded, 'Stations', 3),
+                  _navItem(Icons.info_rounded, 'Info', 4),
                 ],
               ),
             ),
