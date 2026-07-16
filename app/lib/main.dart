@@ -517,6 +517,7 @@ class _MapScreenState extends State<MapScreen> {
     final Widget? inner;
     final Key key;
     final String title; // shown on the minimized pill
+    var glow = Colors.white; // panel halo — tinted for a followed train
     if (_settingsOpen) {
       inner = SingleChildScrollView(child: _settingsContent());
       key = const ValueKey('settings');
@@ -525,6 +526,8 @@ class _MapScreenState extends State<MapScreen> {
       inner = _followContent();
       key = const ValueKey('follow');
       title = 'Train $_followTrainId';
+      final match = _trains.where((t) => t.trainId == _followTrainId);
+      if (match.isNotEmpty) glow = Color(lineColors[match.first.line] ?? 0xFFFFFFFF);
     } else if (_selectedStation != null) {
       inner = StationDetailsPanel(
         api: _api,
@@ -575,6 +578,7 @@ class _MapScreenState extends State<MapScreen> {
         child: GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           borderRadius: const BorderRadius.all(Radius.circular(20)),
+          glowColor: glow,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -595,6 +599,7 @@ class _MapScreenState extends State<MapScreen> {
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
       child: GlassPanel(
+        glowColor: glow,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
