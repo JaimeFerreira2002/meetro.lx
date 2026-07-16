@@ -9,6 +9,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'glass.dart';
 import 'legal.dart';
@@ -117,6 +118,7 @@ class _MapScreenState extends State<MapScreen> {
   String? _followTrainId; // camera auto-follows this train
   bool _settingsOpen = false;
   bool _didAutoOpenNearby = false;
+  Set<String> _favorites = {}; // favourited stop_ids, persisted locally
   Timer? _linesTimer;
 
   @override
@@ -128,6 +130,25 @@ class _MapScreenState extends State<MapScreen> {
     _refreshLines();
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
     _initLocation();
+    _loadFavorites();
+  }
+
+  // ---- favourites ----
+
+  static const _favKey = 'favorite_stops';
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList(_favKey) ?? const [];
+    if (mounted) setState(() => _favorites = ids.toSet());
+  }
+
+  Future<void> _toggleFavorite(String stopId) async {
+    final next = {..._favorites};
+    next.contains(stopId) ? next.remove(stopId) : next.add(stopId);
+    setState(() => _favorites = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_favKey, next.toList());
   }
 
   void _onTrains(List<TrainPosition> t) {
@@ -402,6 +423,8 @@ class _MapScreenState extends State<MapScreen> {
         api: _api,
         station: _selectedStation!,
         onClose: () => setState(() => _selectedStation = null),
+        isFavorite: _favorites.contains(_selectedStation!.stopId),
+        onToggleFavorite: () => _toggleFavorite(_selectedStation!.stopId),
       );
       key = const ValueKey('station');
     } else if (_tab == 1) {
@@ -412,6 +435,8 @@ class _MapScreenState extends State<MapScreen> {
               stations: _stations,
               location: _userLocation!,
               onTapStation: (s) => _flyTo(s.pos, s),
+              favorites: _favorites,
+              onToggleFavorite: _toggleFavorite,
             );
       key = const ValueKey('nearby');
     } else if (_tab == 2) {

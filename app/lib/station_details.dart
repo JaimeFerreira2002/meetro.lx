@@ -11,12 +11,16 @@ class StationDetailsPanel extends StatefulWidget {
   final MetroApi api;
   final Station station;
   final VoidCallback onClose;
+  final bool isFavorite;
+  final VoidCallback onToggleFavorite;
 
   const StationDetailsPanel({
     super.key,
     required this.api,
     required this.station,
     required this.onClose,
+    required this.isFavorite,
+    required this.onToggleFavorite,
   });
 
   @override
@@ -56,16 +60,33 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
         StripeHeader(
           icon: Icons.pin_drop_rounded,
           title: s.name,
-          trailing: GestureDetector(
-            onTap: widget.onClose,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.05),
-                shape: BoxShape.circle,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: widget.onToggleFavorite,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    widget.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: widget.isFavorite ? const Color(0xFFF2C200) : Colors.black38,
+                    size: 22,
+                  ),
+                ),
               ),
-              child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
-            ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: widget.onClose,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close_rounded, color: Colors.black54, size: 18),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
