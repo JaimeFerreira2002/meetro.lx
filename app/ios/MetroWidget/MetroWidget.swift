@@ -279,9 +279,6 @@ struct MetroWidget: Widget {
     }
 }
 
-@main
-struct MetroWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        MetroWidget()
-    }
-}
+// NOTE: no @main / WidgetBundle here — Xcode's generated MetroWidgetBundle.swift
+// owns the entry point and already registers MetroWidget(). Declaring @main in
+// both files is a "duplicate @main" compile error.
