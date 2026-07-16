@@ -1,5 +1,5 @@
-/// "Nearby" panel: the closest stations to you, each with its live next trains
-/// (per direction). The daily-use view — glance and see when your train comes.
+/// "Nearby" panel: your favourite stations first, then the closest ones — each
+/// with its live next trains (per direction). The daily-use view.
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -28,6 +28,8 @@ class NearbyPanel extends StatefulWidget {
   final List<Station> stations;
   final LatLng location;
   final void Function(Station) onTapStation;
+  final Set<String> favorites;
+  final void Function(String stopId) onToggleFavorite;
 
   const NearbyPanel({
     super.key,
@@ -35,6 +37,8 @@ class NearbyPanel extends StatefulWidget {
     required this.stations,
     required this.location,
     required this.onTapStation,
+    required this.favorites,
+    required this.onToggleFavorite,
   });
 
   @override
@@ -43,6 +47,7 @@ class NearbyPanel extends StatefulWidget {
 
 class _NearbyPanelState extends State<NearbyPanel> {
   static const _count = 6;
+  List<Station> _favStations = [];
   List<Station> _nearest = [];
   final Map<String, List<Arrival>?> _arrivals = {}; // null = loading
   Timer? _timer;
@@ -50,7 +55,7 @@ class _NearbyPanelState extends State<NearbyPanel> {
   @override
   void initState() {
     super.initState();
-    _computeNearest();
+    _recompute();
     _loadAll();
     _timer = Timer.periodic(const Duration(seconds: 20), (_) => _loadAll());
   }
@@ -58,11 +63,15 @@ class _NearbyPanelState extends State<NearbyPanel> {
   @override
   void didUpdateWidget(NearbyPanel old) {
     super.didUpdateWidget(old);
-    if (old.location != widget.location || old.stations.length != widget.stations.length) {
-      _computeNearest();
+    if (old.location != widget.location ||
+        old.stations.length != widget.stations.length ||
+        !_sameSet(old.favorites, widget.favorites)) {
+      _recompute();
       _loadAll();
     }
   }
+
+  bool _sameSet(Set<String> a, Set<String> b) => a.length == b.length && a.containsAll(b);
 
   @override
   void dispose() {
@@ -70,15 +79,18 @@ class _NearbyPanelState extends State<NearbyPanel> {
     super.dispose();
   }
 
-  void _computeNearest() {
-    final sorted = [...widget.stations]
+  void _recompute() {
+    final byDistance = [...widget.stations]
       ..sort((a, b) =>
           _distanceM(widget.location, a.pos).compareTo(_distanceM(widget.location, b.pos)));
-    _nearest = sorted.take(_count).toList();
+    _favStations = byDistance.where((s) => widget.favorites.contains(s.stopId)).toList();
+    // don't repeat favourites in the closest list
+    _nearest =
+        byDistance.where((s) => !widget.favorites.contains(s.stopId)).take(_count).toList();
   }
 
   Future<void> _loadAll() async {
-    for (final s in _nearest) {
+    for (final s in [..._favStations, ..._nearest]) {
       widget.api.arrivals(s.stopId).then((a) {
         if (mounted) setState(() => _arrivals[s.stopId] = a);
       });
@@ -94,83 +106,119 @@ class _NearbyPanelState extends State<NearbyPanel> {
         const StripeHeader(icon: Icons.near_me_rounded, title: 'Nearby'),
         const SizedBox(height: 8),
         Flexible(
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: _nearest.length,
-            separatorBuilder: (_, __) => Divider(color: Colors.black.withOpacity(0.06), height: 20),
-            itemBuilder: (_, i) => _stationBlock(_nearest[i]),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_favStations.isNotEmpty) ...[
+                  _sectionLabel(Icons.star_rounded, 'Favourites'),
+                  for (final s in _favStations) _stationBlock(s),
+                  const SizedBox(height: 14),
+                ],
+                _sectionLabel(Icons.near_me_rounded, 'Closest'),
+                for (final s in _nearest) _stationBlock(s),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
+  Widget _sectionLabel(IconData icon, String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          Icon(icon, size: 15, color: Colors.black45),
+          const SizedBox(width: 6),
+          Text(text,
+              style: const TextStyle(
+                  color: Colors.black45, fontSize: 12, fontWeight: FontWeight.w700)),
+        ]),
+      );
+
   Widget _stationBlock(Station s) {
     final dist = _distanceM(widget.location, s.pos);
     final arrivals = _arrivals[s.stopId];
-    return InkWell(
-      onTap: () => widget.onTapStation(s),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              for (final line in s.lines)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Color(lineColors[line] ?? 0xFFFFFFFF),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              Expanded(
-                child: Text(s.name,
-                    style: const TextStyle(
-                        color: Colors.black87, fontWeight: FontWeight.w700, fontSize: 15)),
-              ),
-              Text(_fmtDist(dist),
-                  style: const TextStyle(color: Colors.black45, fontSize: 12, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (arrivals == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
-              child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else if (arrivals.isEmpty)
-            const Text('No upcoming trains',
-                style: TextStyle(color: Colors.black38, fontSize: 12))
-          else
-            for (final a in arrivals.take(3))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
+    final fav = widget.favorites.contains(s.stopId);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        onTap: () => widget.onTapStation(s),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                for (final line in s.lines)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Container(
+                      width: 10,
+                      height: 10,
                       decoration: BoxDecoration(
-                        color: Color(lineColors[a.line] ?? 0xFFFFFFFF),
+                        color: Color(lineColors[line] ?? 0xFFFFFFFF),
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('→ ${a.destinoName}',
-                          style: const TextStyle(color: Colors.black87, fontSize: 13)),
-                    ),
-                    Text(fmtEta(a.etaSeconds),
-                        style: const TextStyle(
-                            color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w800)),
-                  ],
+                  ),
+                Expanded(
+                  child: Text(s.name,
+                      style: const TextStyle(
+                          color: Colors.black87, fontWeight: FontWeight.w700, fontSize: 15)),
                 ),
-              ),
-        ],
+                Text(_fmtDist(dist),
+                    style: const TextStyle(
+                        color: Colors.black45, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () => widget.onToggleFavorite(s.stopId),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      fav ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 20,
+                      color: fav ? const Color(0xFFF2C200) : Colors.black26,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (arrivals == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child:
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else if (arrivals.isEmpty)
+              const Text('No upcoming trains', style: TextStyle(color: Colors.black38, fontSize: 12))
+            else
+              for (final a in arrivals.take(3))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Color(lineColors[a.line] ?? 0xFFFFFFFF),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text('→ ${a.destinoName}',
+                            style: const TextStyle(color: Colors.black87, fontSize: 13)),
+                      ),
+                      Text(fmtEta(a.etaSeconds),
+                          style: const TextStyle(
+                              color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+          ],
+        ),
       ),
     );
   }
