@@ -323,7 +323,7 @@ class _MapScreenState extends State<MapScreen> {
                           padding: const EdgeInsets.all(12),
                           borderRadius: const BorderRadius.all(Radius.circular(30)),
                           child: Icon(Icons.settings_rounded,
-                              color: _settingsOpen ? const Color(0xFF0A6CB0) : _ink),
+                              color: _settingsOpen ? Color(lineColors['Azul']!) : _ink),
                         ),
                       ),
                     ],

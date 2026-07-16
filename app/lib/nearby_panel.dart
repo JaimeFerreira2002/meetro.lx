@@ -177,7 +177,7 @@ class _NearbyPanelState extends State<NearbyPanel> {
                     child: Icon(
                       fav ? Icons.star_rounded : Icons.star_outline_rounded,
                       size: 20,
-                      color: fav ? const Color(0xFFF2C200) : Colors.black26,
+                      color: fav ? const Color(starColor) : Colors.black26,
                     ),
                   ),
                 ),

@@ -69,7 +69,7 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
                   padding: const EdgeInsets.all(4),
                   child: Icon(
                     widget.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: widget.isFavorite ? const Color(0xFFF2C200) : Colors.black38,
+                    color: widget.isFavorite ? const Color(starColor) : Colors.black38,
                     size: 22,
                   ),
                 ),
