@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'line_stripe.dart';
+import 'strings.dart';
 
 class SplashScreen extends StatefulWidget {
   final VoidCallback onDone;
@@ -88,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   Text('Metro Lisboa',
                       style: GoogleFonts.poppins(
                           fontSize: 30, fontWeight: FontWeight.w700, color: Colors.black87)),
-                  Text('live',
+                  Text(tr('live', 'ao vivo'),
                       style: GoogleFonts.poppins(
                           fontSize: 15, fontWeight: FontWeight.w500, color: Colors.black38)),
                 ],

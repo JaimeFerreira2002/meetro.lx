@@ -6,6 +6,7 @@ import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'stations_panel.dart' show fmtEta;
+import 'strings.dart';
 
 class StationDetailsPanel extends StatefulWidget {
   final MetroApi api;
@@ -120,10 +121,10 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
           ],
         ),
         const SizedBox(height: 16),
-        const Row(children: [
+        Row(children: [
           Icon(Icons.schedule_rounded, color: Colors.black87, size: 18),
           SizedBox(width: 8),
-          Text('Next trains',
+          Text(tr('Next trains', 'Próximos comboios'),
               style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
         ]),
         const SizedBox(height: 8),
@@ -142,7 +143,7 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
     }
     if (arrivals.isEmpty) {
       return Text(
-          widget.api.connected.value ? 'No upcoming trains' : "Can't reach the server",
+          widget.api.connected.value ? tr('No upcoming trains', 'Sem próximos comboios') : tr("Can't reach the server", 'Sem ligação ao servidor'),
           style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w500));
     }
     return Column(

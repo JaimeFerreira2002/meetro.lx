@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'line_stripe.dart';
 import 'models.dart';
+import 'strings.dart';
 import 'stations_panel.dart' show fmtEta;
 
 class TrainsList extends StatelessWidget {
@@ -22,12 +23,12 @@ class TrainsList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StripeHeader(icon: Icons.directions_subway_rounded, title: 'Trains (${sorted.length})'),
+        StripeHeader(icon: Icons.directions_subway_rounded, title: '${tr('Trains', 'Comboios')} (${sorted.length})'),
         const SizedBox(height: 8),
         if (sorted.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('No trains circulating',
+            child: Text(tr('No trains circulating', 'Sem comboios em circulação'),
                 style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500)),
           )
         else
@@ -52,9 +53,9 @@ class TrainsList extends StatelessWidget {
         height: 14,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
-      title: Text('Train ${t.trainId}  →  ${t.destinoName}',
+      title: Text('${tr('Train', 'Comboio')} ${t.trainId}  →  ${t.destinoName}',
           style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 14)),
-      subtitle: Text('Next: ${t.nextStopName}',
+      subtitle: Text('${tr('Next', 'Próxima')}: ${t.nextStopName}',
           style: const TextStyle(color: Colors.black45, fontSize: 12)),
       trailing: Text(fmtEta(t.etaSeconds),
           style: const TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w800)),
