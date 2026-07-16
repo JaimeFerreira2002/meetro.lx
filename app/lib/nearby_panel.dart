@@ -191,7 +191,11 @@ class _NearbyPanelState extends State<NearbyPanel> {
                     SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
               )
             else if (arrivals.isEmpty)
-              const Text('No upcoming trains', style: TextStyle(color: Colors.black38, fontSize: 12))
+              Text(
+                  widget.api.connected.value
+                      ? 'No upcoming trains'
+                      : "Can't reach the server",
+                  style: const TextStyle(color: Colors.black38, fontSize: 12))
             else
               for (final a in arrivals.take(3))
                 Padding(

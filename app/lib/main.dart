@@ -121,6 +121,7 @@ class _MapScreenState extends State<MapScreen> {
   bool _panelMinimized = false;
   bool _didAutoOpenNearby = false;
   Set<String> _favorites = {}; // favourited stop_ids, persisted locally
+  DateTime? _lastUpdate; // when the last live snapshot arrived
   Timer? _linesTimer;
 
   @override
@@ -129,6 +130,7 @@ class _MapScreenState extends State<MapScreen> {
     _api.track().then((t) => setState(() => _track = t));
     _api.stations().then((s) => setState(() => _stations = s));
     _api.trainStream().listen(_onTrains);
+    _api.connected.addListener(_onConnectionChanged);
     _refreshLines();
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
     _initLocation();
@@ -154,8 +156,35 @@ class _MapScreenState extends State<MapScreen> {
     await prefs.setStringList(_favKey, next.toList());
   }
 
+  void _onConnectionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _online => _api.connected.value;
+
+  Widget _offlineBanner() => GlassPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: _warn, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              _lastUpdate == null
+                  ? "Can't reach the server · retrying…"
+                  : 'No connection · showing last known',
+              style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+
   void _onTrains(List<TrainPosition> t) {
-    setState(() => _trains = t);
+    setState(() {
+      _trains = t;
+      _lastUpdate = DateTime.now();
+    });
     // keep the camera centered on the followed train as it moves
     final id = _followTrainId;
     if (id != null) {
@@ -185,6 +214,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _linesTimer?.cancel();
+    _api.connected.removeListener(_onConnectionChanged);
     super.dispose();
   }
 
@@ -365,32 +395,43 @@ class _MapScreenState extends State<MapScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  GlassPanel(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    borderRadius: const BorderRadius.all(Radius.circular(18)),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.directions_subway_rounded, color: _ink, size: 20),
-                            const SizedBox(width: 8),
-                            Text('${_trains.length}',
-                                style: const TextStyle(
-                                    color: _ink, fontSize: 24, fontWeight: FontWeight.w800, height: 1)),
-                            const SizedBox(width: 6),
-                            const Text('trains live',
-                                style: TextStyle(
-                                    color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const LineStripe(width: 72, height: 3, gap: 2),
-                      ],
+                  // Only claim a count once we've actually had data — otherwise
+                  // "0 trains live" would read as "the metro isn't running".
+                  if (_lastUpdate != null)
+                    GlassPanel(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      borderRadius: const BorderRadius.all(Radius.circular(18)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.directions_subway_rounded,
+                                  color: _online ? _ink : _inkSoft, size: 20),
+                              const SizedBox(width: 8),
+                              Text('${_trains.length}',
+                                  style: TextStyle(
+                                      color: _online ? _ink : _inkSoft,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1)),
+                              const SizedBox(width: 6),
+                              Text(_online ? 'trains live' : 'trains · last known',
+                                  style: const TextStyle(
+                                      color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const LineStripe(width: 72, height: 3, gap: 2),
+                        ],
+                      ),
                     ),
-                  ),
+                  if (!_online) ...[
+                    if (_lastUpdate != null) const SizedBox(height: 8),
+                    _offlineBanner(),
+                  ],
                 ],
               ),
             ),
@@ -640,17 +681,35 @@ class _MapScreenState extends State<MapScreen> {
       children: [
         const StripeHeader(icon: Icons.info_rounded, title: 'Service status'),
         const SizedBox(height: 12),
+        if (!_online)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              const Icon(Icons.cloud_off_rounded, color: _warn, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    _lastUpdate == null
+                        ? "Can't reach the server — retrying…"
+                        : 'No connection — the figures below are the last known.',
+                    style: const TextStyle(color: _warn, fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
+            ]),
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text('${_trains.length}',
-                style: const TextStyle(
-                    color: _ink, fontSize: 44, fontWeight: FontWeight.w800, height: 1)),
+                style: TextStyle(
+                    color: _online ? _ink : _inkSoft,
+                    fontSize: 44,
+                    fontWeight: FontWeight.w800,
+                    height: 1)),
             const SizedBox(width: 8),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 6),
-              child: Text('trains circulating',
-                  style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(_online ? 'trains circulating' : 'trains (last known)',
+                  style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
             ),
           ],
         ),

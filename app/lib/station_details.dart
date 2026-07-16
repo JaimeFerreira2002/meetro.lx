@@ -141,8 +141,9 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
       );
     }
     if (arrivals.isEmpty) {
-      return const Text('No upcoming trains',
-          style: TextStyle(color: Colors.black45, fontWeight: FontWeight.w500));
+      return Text(
+          widget.api.connected.value ? 'No upcoming trains' : "Can't reach the server",
+          style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w500));
     }
     return Column(
       children: [
