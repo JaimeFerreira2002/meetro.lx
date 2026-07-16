@@ -55,6 +55,8 @@ private final class LocationProvider: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var handler: ((CLLocation?) -> Void)?
 
+    var authorizationStatus: CLAuthorizationStatus { manager.authorizationStatus }
+
     func request(_ completion: @escaping (CLLocation?) -> Void) {
         handler = completion
         manager.delegate = self
@@ -64,11 +66,17 @@ private final class LocationProvider: NSObject, CLLocationManagerDelegate {
             return
         }
         manager.requestLocation()
+        // requestLocation() can silently never call back (e.g. unauthorized in
+        // an extension). Don't let the timeline hang on it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.finish(nil)
+        }
     }
 
     private func finish(_ location: CLLocation?) {
-        handler?(location)
-        handler = nil
+        guard let handler else { return } // already finished (or timed out)
+        self.handler = nil
+        handler(location)
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -136,7 +144,15 @@ struct Provider: TimelineProvider {
     private func load(completion: @escaping (MetroEntry) -> Void) {
         LocationProvider.shared.request { location in
             guard let location else {
-                completion(.failure("Open the app and allow location"))
+                // Be specific — "no location" has very different causes.
+                switch LocationProvider.shared.authorizationStatus {
+                case .notDetermined:
+                    completion(.failure("Open the app and allow location"))
+                case .denied, .restricted:
+                    completion(.failure("Location is off — enable it in Settings"))
+                default:
+                    completion(.failure("Waiting for a location fix…"))
+                }
                 return
             }
             Task {
