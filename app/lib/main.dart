@@ -13,6 +13,7 @@ import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dar
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'legal.dart';
+import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
@@ -371,9 +372,8 @@ class _MapScreenState extends State<MapScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Image.asset(
-                          'assets/icons/metro.png',
-                          width: 14,
-                          height: 14,
+                          'assets/icons/logo_metro.png',
+                          height: 18,
                           errorBuilder: (_, __, ___) => const Icon(
                               Icons.directions_subway_rounded,
                               size: 12,
@@ -678,7 +678,7 @@ class _MapScreenState extends State<MapScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              LineLogo(t.line, height: 16),
               const SizedBox(width: 6),
               Text(t.line, style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600)),
             ]),
@@ -787,15 +787,8 @@ class _MapScreenState extends State<MapScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: Color(lineColors[line] ?? 0xFFFFFFFF),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
+          SizedBox(width: 26, child: Center(child: LineLogo(line, height: 22))),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(line, style: const TextStyle(color: _ink, fontWeight: FontWeight.w600)),
           ),

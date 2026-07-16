@@ -2,6 +2,7 @@
 /// Shows the station name, its lines, and the next trains (live arrivals).
 import 'package:flutter/material.dart';
 
+import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
@@ -103,14 +104,7 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Color(lineColors[line] ?? 0xFFFFFFFF),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                    LineLogo(line, height: 16),
                     const SizedBox(width: 6),
                     Text(line,
                         style: const TextStyle(
