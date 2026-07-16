@@ -117,6 +117,7 @@ class _MapScreenState extends State<MapScreen> {
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
   bool _settingsOpen = false;
+  bool _panelMinimized = false;
   bool _didAutoOpenNearby = false;
   Set<String> _favorites = {}; // favourited stop_ids, persisted locally
   Timer? _linesTimer;
@@ -168,6 +169,7 @@ class _MapScreenState extends State<MapScreen> {
       _followTrainId = t.trainId;
       _selectedStation = null;
       _settingsOpen = false;
+      _panelMinimized = false;
     });
     _mapController.move(t.pos, 15);
   }
@@ -251,7 +253,10 @@ class _MapScreenState extends State<MapScreen> {
     _mapController.move(target, station != null ? 15 : 14);
     setState(() {
       _settingsOpen = false;
-      if (station != null) _selectedStation = station;
+      if (station != null) {
+        _selectedStation = station;
+        _panelMinimized = false;
+      }
     });
   }
 
@@ -318,6 +323,7 @@ class _MapScreenState extends State<MapScreen> {
                           _settingsOpen = !_settingsOpen;
                           _selectedStation = null;
                           _followTrainId = null;
+                          _panelMinimized = false;
                         }),
                         child: GlassPanel(
                           padding: const EdgeInsets.all(12),
@@ -365,7 +371,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Align(
               alignment: Alignment.bottomRight,
               child: Padding(
-                padding: const EdgeInsets.only(right: 16, bottom: 96),
+                padding: const EdgeInsets.only(right: 16, bottom: 80),
                 child: GestureDetector(
                   onTap: _goToMyLocation,
                   child: const GlassPanel(
@@ -383,7 +389,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 320),
                   switchInCurve: Curves.easeOutCubic,
@@ -412,12 +418,15 @@ class _MapScreenState extends State<MapScreen> {
   Widget _panelContent() {
     final Widget? inner;
     final Key key;
+    final String title; // shown on the minimized pill
     if (_settingsOpen) {
       inner = SingleChildScrollView(child: _settingsContent());
       key = const ValueKey('settings');
+      title = 'Settings';
     } else if (_followTrainId != null) {
       inner = _followContent();
       key = const ValueKey('follow');
+      title = 'Train $_followTrainId';
     } else if (_selectedStation != null) {
       inner = StationDetailsPanel(
         api: _api,
@@ -427,6 +436,7 @@ class _MapScreenState extends State<MapScreen> {
         onToggleFavorite: () => _toggleFavorite(_selectedStation!.stopId),
       );
       key = const ValueKey('station');
+      title = _selectedStation!.name;
     } else if (_tab == 1) {
       inner = _userLocation == null
           ? _nearbyPrompt()
@@ -439,24 +449,83 @@ class _MapScreenState extends State<MapScreen> {
               onToggleFavorite: _toggleFavorite,
             );
       key = const ValueKey('nearby');
+      title = 'Nearby';
     } else if (_tab == 2) {
       inner = TrainsList(trains: _trains, onSelect: _followTrain);
       key = const ValueKey('trains');
+      title = 'Trains';
     } else if (_tab == 3) {
       inner = StationsList(api: _api, stations: _stations);
       key = const ValueKey('stations');
+      title = 'Stations';
     } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
+      title = 'Info';
     } else {
       return const SizedBox.shrink(key: ValueKey('none'));
     }
+
+    // Minimized: collapse to a pill that restores the panel on tap.
+    if (_panelMinimized) {
+      return GestureDetector(
+        key: const ValueKey('minimized'),
+        onTap: () => setState(() => _panelMinimized = false),
+        child: GlassPanel(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.keyboard_arrow_up_rounded, color: _inkSoft, size: 20),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ConstrainedBox(
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-      child: GlassPanel(child: inner),
+      child: GlassPanel(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _grabber(),
+            Flexible(child: inner),
+          ],
+        ),
+      ),
     );
   }
+
+  /// Drag-handle at the top of a panel: tap or swipe down to minimize.
+  Widget _grabber() => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _panelMinimized = true),
+        onVerticalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) > 0) setState(() => _panelMinimized = true);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(bottom: 10),
+          alignment: Alignment.center,
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      );
 
   Widget _followContent() {
     final matches = _trains.where((t) => t.trainId == _followTrainId).toList();
@@ -746,7 +815,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Opacity(opacity: v.clamp(0.0, 1.0), child: child),
           ),
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.only(bottom: 4),
             child: GlassPanel(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               borderRadius: const BorderRadius.all(Radius.circular(30)),
@@ -778,6 +847,7 @@ class _MapScreenState extends State<MapScreen> {
         _selectedStation = null;
         _followTrainId = null;
         _settingsOpen = false;
+        _panelMinimized = false; // picking a tab restores the panel
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -813,6 +883,7 @@ class _MapScreenState extends State<MapScreen> {
           _selectedStation = s;
           _followTrainId = null;
           _settingsOpen = false;
+          _panelMinimized = false;
           _tab = 0;
         }),
         child: Center(
