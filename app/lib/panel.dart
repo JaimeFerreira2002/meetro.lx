@@ -1,9 +1,9 @@
-/// Cozy panel material: warm white, opaque, rounded, with a soft glow.
-/// (Was frosted dark glass; the widget name is kept so call sites don't churn.)
+/// The app's surface material: warm white, opaque, rounded, with a soft glow.
+/// Used for every floating surface — panels, nav bar, HUD, search and buttons.
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-class GlassPanel extends StatelessWidget {
+class Panel extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final BorderRadius borderRadius;
@@ -13,7 +13,7 @@ class GlassPanel extends StatelessWidget {
   /// (e.g. the followed train's line).
   final Color glowColor;
 
-  const GlassPanel({
+  const Panel({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),

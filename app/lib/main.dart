@@ -12,12 +12,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'glass.dart';
 import 'legal.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'nearby_panel.dart';
+import 'panel.dart';
 import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
@@ -107,7 +107,7 @@ class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
   final _mapController = MapController();
 
-  int _tab = 0; // 0 map, 1 trains, 2 stations, 3 info, 4 settings
+  int _tab = 0; // 0 map, 1 nearby, 2 trains, 3 stations, 4 info (settings = gear)
   MapStyle _style = MapStyle.cozy;
 
   List<TrackLine> _track = [];
@@ -162,7 +162,7 @@ class _MapScreenState extends State<MapScreen> {
 
   bool get _online => _api.connected.value;
 
-  Widget _offlineBanner() => GlassPanel(
+  Widget _offlineBanner() => Panel(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         borderRadius: const BorderRadius.all(Radius.circular(16)),
         child: Row(
@@ -412,7 +412,7 @@ class _MapScreenState extends State<MapScreen> {
                             _panelMinimized = false;
                           });
                         },
-                        child: GlassPanel(
+                        child: Panel(
                           padding: const EdgeInsets.all(12),
                           borderRadius: const BorderRadius.all(Radius.circular(30)),
                           child: Icon(Icons.settings_rounded,
@@ -425,7 +425,7 @@ class _MapScreenState extends State<MapScreen> {
                   // Only claim a count once we've actually had data — otherwise
                   // "0 trains live" would read as "the metro isn't running".
                   if (_lastUpdate != null)
-                    GlassPanel(
+                    Panel(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       borderRadius: const BorderRadius.all(Radius.circular(18)),
                       child: Column(
@@ -472,7 +472,7 @@ class _MapScreenState extends State<MapScreen> {
                 padding: const EdgeInsets.only(right: 16, bottom: 80),
                 child: GestureDetector(
                   onTap: _goToMyLocation,
-                  child: const GlassPanel(
+                  child: const Panel(
                     padding: EdgeInsets.all(14),
                     borderRadius: BorderRadius.all(Radius.circular(30)),
                     child: Icon(Icons.my_location_rounded, color: _ink),
@@ -575,7 +575,7 @@ class _MapScreenState extends State<MapScreen> {
           HapticFeedback.lightImpact();
           setState(() => _panelMinimized = false);
         },
-        child: GlassPanel(
+        child: Panel(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           borderRadius: const BorderRadius.all(Radius.circular(20)),
           glowColor: glow,
@@ -598,7 +598,7 @@ class _MapScreenState extends State<MapScreen> {
     return ConstrainedBox(
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-      child: GlassPanel(
+      child: Panel(
         glowColor: glow,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -952,7 +952,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
           child: Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: GlassPanel(
+            child: Panel(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               borderRadius: const BorderRadius.all(Radius.circular(30)),
               child: Row(

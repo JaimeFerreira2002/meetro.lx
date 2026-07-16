@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'glass.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'panel.dart';
 
 class SearchBox extends StatefulWidget {
   final MetroApi api;
@@ -67,7 +67,7 @@ class _SearchBoxState extends State<SearchBox> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GlassPanel(
+        Panel(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           borderRadius: const BorderRadius.all(Radius.circular(20)),
           child: Row(
@@ -108,7 +108,7 @@ class _SearchBoxState extends State<SearchBox> {
             padding: const EdgeInsets.only(top: 8),
             child: ConstrainedBox(
               constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
-              child: GlassPanel(
+              child: Panel(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: ListView.builder(
                   shrinkWrap: true,
