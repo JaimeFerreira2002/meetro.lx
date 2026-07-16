@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -145,6 +146,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _toggleFavorite(String stopId) async {
+    HapticFeedback.selectionClick();
     final next = {..._favorites};
     next.contains(stopId) ? next.remove(stopId) : next.add(stopId);
     setState(() => _favorites = next);
@@ -165,6 +167,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _followTrain(TrainPosition t) {
+    HapticFeedback.selectionClick();
     setState(() {
       _followTrainId = t.trainId;
       _selectedStation = null;
@@ -186,6 +189,26 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   int _countFor(String line) => _trains.where((t) => t.line == line).length;
+
+  // ---- map zoom ----
+
+  static const _initialZoom = 12.0;
+  static const _stationZoom = 13.0; // below this, station dots are hidden
+  double _zoom = _initialZoom;
+
+  bool get _showStations => _zoom >= _stationZoom;
+
+  void _onMapMoved(MapCamera camera, bool hasGesture) {
+    final was = _showStations;
+    _zoom = camera.zoom;
+    // Only rebuild when we cross the threshold (this fires on every frame of a
+    // pan/zoom), and defer it — onPositionChanged can fire during layout.
+    if (_showStations != was) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
 
   // ---- location ----
 
@@ -267,9 +290,10 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: const MapOptions(
-              initialCenter: LatLng(38.728, -9.145),
-              initialZoom: 12,
+            options: MapOptions(
+              initialCenter: const LatLng(38.728, -9.145),
+              initialZoom: _initialZoom,
+              onPositionChanged: _onMapMoved,
             ),
             children: [
               TileLayer(
@@ -285,7 +309,10 @@ class _MapScreenState extends State<MapScreen> {
                         ))
                     .toList(),
               ),
-              MarkerLayer(markers: _stations.map(_stationMarker).toList()),
+              // station dots would clutter the city-wide view — only show them
+              // once you're zoomed in enough for them to be useful
+              if (_showStations)
+                MarkerLayer(markers: _stations.map(_stationMarker).toList()),
               MarkerLayer(markers: _trains.map(_trainMarker).toList()),
               if (_userLocation != null)
                 MarkerLayer(markers: [_userMarker(_userLocation!)]),
@@ -319,12 +346,15 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(width: 8),
                       GestureDetector(
-                        onTap: () => setState(() {
-                          _settingsOpen = !_settingsOpen;
-                          _selectedStation = null;
-                          _followTrainId = null;
-                          _panelMinimized = false;
-                        }),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() {
+                            _settingsOpen = !_settingsOpen;
+                            _selectedStation = null;
+                            _followTrainId = null;
+                            _panelMinimized = false;
+                          });
+                        },
                         child: GlassPanel(
                           padding: const EdgeInsets.all(12),
                           borderRadius: const BorderRadius.all(Radius.circular(30)),
@@ -470,7 +500,10 @@ class _MapScreenState extends State<MapScreen> {
     if (_panelMinimized) {
       return GestureDetector(
         key: const ValueKey('minimized'),
-        onTap: () => setState(() => _panelMinimized = false),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _panelMinimized = false);
+        },
         child: GlassPanel(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           borderRadius: const BorderRadius.all(Radius.circular(20)),
@@ -505,12 +538,17 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  void _minimizePanel() {
+    HapticFeedback.lightImpact();
+    setState(() => _panelMinimized = true);
+  }
+
   /// Drag-handle at the top of a panel: tap or swipe down to minimize.
   Widget _grabber() => GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _panelMinimized = true),
+        onTap: _minimizePanel,
         onVerticalDragEnd: (d) {
-          if ((d.primaryVelocity ?? 0) > 0) setState(() => _panelMinimized = true);
+          if ((d.primaryVelocity ?? 0) > 0) _minimizePanel();
         },
         child: Container(
           width: double.infinity,
@@ -773,7 +811,10 @@ class _MapScreenState extends State<MapScreen> {
     final selected = _style == s;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _style = s),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _style = s);
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           alignment: Alignment.center,
@@ -842,13 +883,16 @@ class _MapScreenState extends State<MapScreen> {
         _followTrainId == null &&
         !_settingsOpen;
     return GestureDetector(
-      onTap: () => setState(() {
-        _tab = index;
-        _selectedStation = null;
-        _followTrainId = null;
-        _settingsOpen = false;
-        _panelMinimized = false; // picking a tab restores the panel
-      }),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _tab = index;
+          _selectedStation = null;
+          _followTrainId = null;
+          _settingsOpen = false;
+          _panelMinimized = false; // picking a tab restores the panel
+        });
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
@@ -879,13 +923,16 @@ class _MapScreenState extends State<MapScreen> {
       width: 22,
       height: 22,
       child: GestureDetector(
-        onTap: () => setState(() {
-          _selectedStation = s;
-          _followTrainId = null;
-          _settingsOpen = false;
-          _panelMinimized = false;
-          _tab = 0;
-        }),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() {
+            _selectedStation = s;
+            _followTrainId = null;
+            _settingsOpen = false;
+            _panelMinimized = false;
+            _tab = 0;
+          });
+        },
         child: Center(
           child: Container(
             width: 14,
