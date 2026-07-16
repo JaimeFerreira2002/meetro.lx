@@ -5,7 +5,7 @@
 
 _Last updated: [DATE]_
 
-**Lisbon Metro Live** ("the app") respects your privacy. This policy explains what
+**meetro** ("the app") respects your privacy. This policy explains what
 the app does and does not do with your information.
 
 ## What we collect

@@ -38,7 +38,7 @@ class MetroApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Metro Lisboa AR',
+        title: 'meetro',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
