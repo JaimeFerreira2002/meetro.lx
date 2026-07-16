@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -551,7 +551,7 @@
 				DEVELOPMENT_TEAM = 246QW6PYSX;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MetroWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MetroWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -592,7 +592,7 @@
 				DEVELOPMENT_TEAM = 246QW6PYSX;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MetroWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MetroWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -630,7 +630,7 @@
 				DEVELOPMENT_TEAM = 246QW6PYSX;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MetroWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = MetroWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
