@@ -210,62 +210,103 @@ struct MetroWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     var entry: MetroEntry
 
+    private var isSmall: Bool { family == .systemSmall }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            header
-            if let message = entry.message {
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 0) {
+            if entry.stationName == nil, let message = entry.message {
+                // Nothing to describe yet — don't claim a "closest station".
+                eyebrow("tram.fill", "NEXT TRAINS")
+                Spacer(minLength: 6)
                 Text(message)
-                    .font(.caption)
+                    .font(.system(size: isSmall ? 10 : 12))
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             } else {
-                ForEach(entry.arrivals.prefix(family == .systemSmall ? 2 : 3)) { arrival in
-                    row(arrival)
-                }
-                Spacer(minLength: 0)
+                content
             }
             lineStripe
         }
-        .padding(12)
+        .padding(isSmall ? 11 : 14)
         .containerBackground(.background, for: .widget)
     }
 
-    private var header: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "tram.fill")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            eyebrow("location.fill", "CLOSEST STATION")
+            stationLine
+            if let message = entry.message {
+                Spacer(minLength: 6)
+                Text(message)
+                    .font(.system(size: isSmall ? 10 : 12))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            } else {
+                Divider().padding(.vertical, isSmall ? 5 : 7)
+                HStack {
+                    eyebrow("tram.fill", "NEXT TRAINS")
+                    Spacer(minLength: 0)
+                    Text("arrives in")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.bottom, 3)
+                ForEach(entry.arrivals.prefix(isSmall ? 2 : 3)) { arrival in
+                    row(arrival)
+                }
+                Spacer(minLength: 4)
+            }
+        }
+    }
+
+    /// Small uppercase caption that says what the block below actually is.
+    private func eyebrow(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol).font(.system(size: 8, weight: .semibold))
+            Text(text)
+                .font(.system(size: 8, weight: .semibold))
+                .tracking(0.6)
+        }
+        .foregroundStyle(.secondary)
+    }
+
+    private var stationLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(entry.stationName ?? "Nearby")
-                .font(.footnote.weight(.bold))
+                .font(.system(size: isSmall ? 15 : 18, weight: .bold))
                 .lineLimit(1)
-            Spacer(minLength: 0)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 2)
             if let distance = entry.distanceMeters {
                 Text(distance < 1000
-                     ? "\(Int(distance)) m"
-                     : String(format: "%.1f km", distance / 1000))
-                    .font(.caption2)
+                     ? "\(Int(distance)) m away"
+                     : String(format: "%.1f km away", distance / 1000))
+                    .font(.system(size: 9))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
     }
 
     private func row(_ arrival: ArrivalItem) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             Circle()
                 .fill(lineColor(arrival.line))
-                .frame(width: 8, height: 8)
-            Text(arrival.destination)
-                .font(.caption)
+                .frame(width: 7, height: 7)
+            Text("→ \(arrival.destination)")
+                .font(.system(size: isSmall ? 11 : 13))
                 .lineLimit(1)
-            Spacer(minLength: 4)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 3)
             // Absolute date + .timer => counts down live between refreshes.
             Text(arrival.arrivesAt, style: .timer)
-                .font(.caption.weight(.heavy))
+                .font(.system(size: isSmall ? 11 : 13, weight: .heavy))
                 .monospacedDigit()
                 .lineLimit(1)
-                .frame(maxWidth: 46, alignment: .trailing)
+                .frame(maxWidth: isSmall ? 40 : 48, alignment: .trailing)
         }
+        .padding(.vertical, 1.5)
     }
 
     /// The app's four-line motif.
@@ -289,8 +330,8 @@ struct MetroWidget: Widget {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
             MetroWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Next trains")
-        .description("Next trains at the metro station closest to you.")
+        .configurationDisplayName("Next trains nearby")
+        .description("Live countdown to the next trains at the metro station closest to you.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
