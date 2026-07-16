@@ -349,14 +349,41 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
-          // Map tile attribution (required by OSM/CARTO)
+          // Always-visible data credit + tile attribution (required by OSM/CARTO).
+          // Sits above the nav bar so the centred nav pill can't cover it.
           Align(
             alignment: Alignment.bottomLeft,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.only(left: 10, bottom: 4),
-                child: Text('© OpenStreetMap · CARTO',
-                    style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
+                padding: const EdgeInsets.only(left: 12, bottom: 56),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/icons/metro.png',
+                          width: 14,
+                          height: 14,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.directions_subway_rounded,
+                              size: 12,
+                              color: Colors.black54),
+                        ),
+                        const SizedBox(width: 5),
+                        Text('Metro de Lisboa',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black.withOpacity(0.6))),
+                      ],
+                    ),
+                    Text('© OpenStreetMap · CARTO',
+                        style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
+                  ],
+                ),
               ),
             ),
           ),
@@ -635,7 +662,11 @@ class _MapScreenState extends State<MapScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         StripeHeader(
-            icon: Icons.directions_subway_rounded, title: 'Train ${t.trainId}', trailing: close),
+          icon: Icons.directions_subway_rounded,
+          title: 'Train ${t.trainId}',
+          trailing: close,
+          lines: [t.line], // this train's own line, not all four
+        ),
         const SizedBox(height: 10),
         Row(children: [
           Container(
@@ -922,9 +953,10 @@ class _MapScreenState extends State<MapScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _navItem(Icons.map_rounded, 'Map', 0),
+                  // Map sits in the middle as the standout "home" button
                   _navItem(Icons.near_me_rounded, 'Nearby', 1),
                   _navItem(Icons.directions_subway_rounded, 'Trains', 2),
+                  _mapNavButton(),
                   _navItem(Icons.pin_drop_rounded, 'Stations', 3),
                   _navItem(Icons.info_rounded, 'Info', 4),
                 ],
@@ -932,6 +964,42 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// The centre "home" button — always dark-filled so it stands out from the
+  /// other tabs, ringed in blue when the map is the active view.
+  Widget _mapNavButton() {
+    final selected =
+        _tab == 0 && _selectedStation == null && _followTrainId == null && !_settingsOpen;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _tab = 0;
+          _selectedStation = null;
+          _followTrainId = null;
+          _settingsOpen = false;
+          _panelMinimized = false;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: _ink,
+          shape: BoxShape.circle,
+          border: selected ? Border.all(color: Color(lineColors['Azul']!), width: 2.5) : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.map_rounded, color: Colors.white, size: 24),
       ),
     );
   }
