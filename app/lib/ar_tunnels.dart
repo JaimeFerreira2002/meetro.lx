@@ -42,6 +42,10 @@ class ArTunnelsScreen extends StatefulWidget {
 }
 
 class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
+  // The tunnel is a translucent tube: cylinder segments joined along the path,
+  // with a sphere at each joint so bends and ends look seamless.
+  static const double _tunnelRadius = 2.0; // metres (bore ~4 m across)
+
   // Real mode
   static const double _tunnelDepth = 18; // metres below the device
   static const double _maxRange = 1500; // metres — cull distant points
@@ -50,7 +54,7 @@ class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
   // Test mode
   static const double _testDepth = 6; // shallower, so it's easy to see
   static const double _testLineLength = 420; // metres
-  static const int _testMarker = 8; // metres between tunnel markers
+  static const int _testSpacing = 8; // metres between centreline vertices
   static const int _mockLineColor = 0xFFF7A800; // Amarela — bright, visible
 
   ARKitController? _controller;
@@ -122,6 +126,62 @@ class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
     _nodeNames.add(node.name);
   }
 
+  // ---- tunnel tube (shared by both modes) ----
+
+  /// Translucent so the trains inside stay visible; double-sided so it reads as
+  /// a bore whether you're looking at it from outside or standing in it; no
+  /// depth write so it never occludes the trains.
+  ARKitMaterial _tunnelMat(Color color) => ARKitMaterial(
+        diffuse: ARKitMaterialProperty.color(color),
+        emission: ARKitMaterialProperty.color(color),
+        transparency: 0.4,
+        doubleSided: true,
+        writesToDepthBuffer: false,
+      );
+
+  /// A continuous tube through the ordered points: one cylinder per segment,
+  /// plus a joint sphere at every vertex to hide the seams at bends.
+  void _drawTube(ARKitController c, List<vm.Vector3> pts, Color color) {
+    for (var i = 0; i < pts.length - 1; i++) {
+      _tubeSegment(c, pts[i], pts[i + 1], color);
+    }
+    for (final p in pts) {
+      _add(
+        c,
+        ARKitNode(
+          geometry: ARKitSphere(radius: _tunnelRadius, materials: [_tunnelMat(color)]),
+          position: p,
+        ),
+      );
+    }
+  }
+
+  /// One cylinder from [a] to [b]. ARKitCylinder runs along its local +Y axis,
+  /// centred at its origin, so we place it at the midpoint and rotate +Y onto
+  /// the segment direction (axis-angle).
+  void _tubeSegment(ARKitController c, vm.Vector3 a, vm.Vector3 b, Color color) {
+    final seg = b - a;
+    final len = seg.length;
+    if (len < 0.001) return;
+    final dir = seg / len;
+    final y = vm.Vector3(0, 1, 0);
+    final axis = y.cross(dir);
+    final axisLen = axis.length;
+    final angle = math.acos(y.dot(dir).clamp(-1.0, 1.0));
+    // axisLen ~ 0 means the segment is already vertical — no rotation needed.
+    final rot = axisLen < 1e-6
+        ? vm.Vector4(1, 0, 0, 0)
+        : vm.Vector4(axis.x / axisLen, axis.y / axisLen, axis.z / axisLen, angle);
+    _add(
+      c,
+      ARKitNode(
+        geometry: ARKitCylinder(height: len, radius: _tunnelRadius, materials: [_tunnelMat(color)]),
+        position: (a + b) * 0.5,
+        rotation: rot,
+      ),
+    );
+  }
+
   // ---- real tunnels ----
 
   void _drawReal(ARKitController c, List<TrackLine> tracks) {
@@ -133,26 +193,31 @@ class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
 
     for (final t in tracks) {
       final color = Color(t.color);
+      // Break the polyline into contiguous in-range runs, so the tube never
+      // draws a chord across a gap where points were culled.
+      var run = <vm.Vector3>[];
+      void flush() {
+        if (run.length >= 2) {
+          _drawTube(c, run, color);
+          placed += run.length;
+        }
+        run = [];
+      }
+
       for (var i = 0; i < t.points.length; i += _step) {
         final p = t.points[i];
         final east = (p.longitude - lon0) * mPerLon;
         final north = (p.latitude - lat0) * mPerLat;
-        if (east.abs() > _maxRange || north.abs() > _maxRange) continue;
-
+        if (east.abs() > _maxRange || north.abs() > _maxRange) {
+          flush();
+          continue;
+        }
         // gravityAndHeading world: +X east, +Y up, +Z south (so north = -Z)
-        _add(
-          c,
-          ARKitNode(
-            geometry: ARKitSphere(
-              radius: 0.6,
-              materials: [ARKitMaterial(diffuse: ARKitMaterialProperty.color(color))],
-            ),
-            position: vm.Vector3(east, -_tunnelDepth, -north),
-          ),
-        );
-        placed++;
+        run.add(vm.Vector3(east, -_tunnelDepth, -north));
       }
+      flush();
     }
+
     setState(() {
       _placed = placed;
       _status = placed == 0
@@ -168,7 +233,7 @@ class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
     // Build a gently curving centreline in local metres, centred on the device.
     // Runs north–south (varying north), with a slight east–west S-curve.
     final path = <vm.Vector3>[];
-    for (double d = -_testLineLength / 2; d <= _testLineLength / 2; d += _testMarker) {
+    for (double d = -_testLineLength / 2; d <= _testLineLength / 2; d += _testSpacing) {
       final east = 26 * math.sin(d / 70); // S-curve, ±26 m
       final north = d;
       path.add(vm.Vector3(east, -_testDepth, -north)); // north = -Z
@@ -184,19 +249,8 @@ class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
 
     final color = const Color(_mockLineColor);
 
-    // Tunnel markers — small dim spheres along the line.
-    for (final p in path) {
-      _add(
-        c,
-        ARKitNode(
-          geometry: ARKitSphere(
-            radius: 0.35,
-            materials: [ARKitMaterial(diffuse: ARKitMaterialProperty.color(color))],
-          ),
-          position: p,
-        ),
-      );
-    }
+    // The tunnel itself — a continuous translucent tube.
+    _drawTube(c, path, color);
 
     // Two trains — one each direction, offset so they pass each other.
     final total = cum.last;
@@ -326,10 +380,10 @@ class _ArTunnelsScreenState extends State<ArTunnelsScreen> {
   String _statusText() {
     if (_placed > 0) {
       return _testMode
-          ? tr('Test line below you · point the phone down · $_placed markers',
-              'Linha de teste abaixo de si · aponte para baixo · $_placed marcadores')
-          : tr('Point down to see the tunnels below · $_placed markers',
-              'Aponte para baixo para ver os túneis · $_placed marcadores');
+          ? tr('Test tunnel below you · point the phone down',
+              'Túnel de teste abaixo de si · aponte para baixo')
+          : tr('Point the phone down to see the tunnels below',
+              'Aponte para baixo para ver os túneis');
     }
     return _status;
   }
