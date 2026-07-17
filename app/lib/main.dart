@@ -125,7 +125,6 @@ class _MapScreenState extends State<MapScreen> {
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
   bool _settingsOpen = false;
-  bool _panelMinimized = false;
   bool _didAutoOpenNearby = false;
   Set<String> _favorites = {}; // favourited stop_ids, persisted locally
   DateTime? _lastUpdate; // when the last live snapshot arrived
@@ -208,7 +207,6 @@ class _MapScreenState extends State<MapScreen> {
       _followTrainId = t.trainId;
       _selectedStation = null;
       _settingsOpen = false;
-      _panelMinimized = false;
     });
     _mapController.move(t.pos, 15);
   }
@@ -316,7 +314,6 @@ class _MapScreenState extends State<MapScreen> {
       _settingsOpen = false;
       if (station != null) {
         _selectedStation = station;
-        _panelMinimized = false;
       }
     });
   }
@@ -416,7 +413,6 @@ class _MapScreenState extends State<MapScreen> {
                             _settingsOpen = !_settingsOpen;
                             _selectedStation = null;
                             _followTrainId = null;
-                            _panelMinimized = false;
                           });
                         },
                         child: Panel(
@@ -516,16 +512,13 @@ class _MapScreenState extends State<MapScreen> {
   Widget _panelContent() {
     final Widget? inner;
     final Key key;
-    final String title; // shown on the minimized pill
     var glow = Colors.white; // panel halo — tinted for a followed train
     if (_settingsOpen) {
       inner = SingleChildScrollView(child: _settingsContent());
       key = const ValueKey('settings');
-      title = 'Settings';
     } else if (_followTrainId != null) {
       inner = _followContent();
       key = const ValueKey('follow');
-      title = 'Train $_followTrainId';
       final match = _trains.where((t) => t.trainId == _followTrainId);
       if (match.isNotEmpty) glow = Color(lineColors[match.first.line] ?? 0xFFFFFFFF);
     } else if (_selectedStation != null) {
@@ -537,7 +530,6 @@ class _MapScreenState extends State<MapScreen> {
         onToggleFavorite: () => _toggleFavorite(_selectedStation!.stopId),
       );
       key = const ValueKey('station');
-      title = _selectedStation!.name;
     } else if (_tab == 1) {
       inner = _userLocation == null
           ? _nearbyPrompt()
@@ -550,93 +542,25 @@ class _MapScreenState extends State<MapScreen> {
               onToggleFavorite: _toggleFavorite,
             );
       key = const ValueKey('nearby');
-      title = 'Nearby';
     } else if (_tab == 2) {
       inner = TrainsList(trains: _trains, onSelect: _followTrain);
       key = const ValueKey('trains');
-      title = 'Trains';
     } else if (_tab == 3) {
       inner = StationsList(api: _api, stations: _stations);
       key = const ValueKey('stations');
-      title = 'Stations';
     } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
-      title = 'Info';
     } else {
       return const SizedBox.shrink(key: ValueKey('none'));
-    }
-
-    // Minimized: collapse to a pill that restores the panel on tap.
-    if (_panelMinimized) {
-      return GestureDetector(
-        key: const ValueKey('minimized'),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          setState(() => _panelMinimized = false);
-        },
-        child: Panel(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
-          glowColor: glow,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.keyboard_arrow_up_rounded, color: _inkSoft, size: 20),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-        ),
-      );
     }
 
     return ConstrainedBox(
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-      child: Panel(
-        glowColor: glow,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _grabber(),
-            Flexible(child: inner),
-          ],
-        ),
-      ),
+      child: Panel(glowColor: glow, child: inner),
     );
   }
-
-  void _minimizePanel() {
-    HapticFeedback.lightImpact();
-    setState(() => _panelMinimized = true);
-  }
-
-  /// Drag-handle at the top of a panel: tap or swipe down to minimize.
-  Widget _grabber() => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _minimizePanel,
-        onVerticalDragEnd: (d) {
-          if ((d.primaryVelocity ?? 0) > 0) _minimizePanel();
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.only(bottom: 10),
-          alignment: Alignment.center,
-          child: Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      );
 
   Widget _followContent() {
     final matches = _trains.where((t) => t.trainId == _followTrainId).toList();
@@ -651,7 +575,9 @@ class _MapScreenState extends State<MapScreen> {
     if (matches.isEmpty) {
       return Column(mainAxisSize: MainAxisSize.min, children: [
         StripeHeader(
-            icon: Icons.directions_subway_rounded, title: 'Train $_followTrainId', trailing: close),
+            icon: Icons.directions_subway_rounded,
+            title: '${tr('Train', 'Comboio')} $_followTrainId',
+            trailing: close),
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
@@ -668,7 +594,7 @@ class _MapScreenState extends State<MapScreen> {
       children: [
         StripeHeader(
           icon: Icons.directions_subway_rounded,
-          title: 'Train ${t.trainId}',
+          title: '${tr('Train', 'Comboio')} ${t.trainId}',
           trailing: close,
           lines: [t.line], // this train's own line, not all four
         ),
@@ -1021,7 +947,6 @@ class _MapScreenState extends State<MapScreen> {
           _selectedStation = null;
           _followTrainId = null;
           _settingsOpen = false;
-          _panelMinimized = false;
         });
       },
       child: Container(
@@ -1053,16 +978,11 @@ class _MapScreenState extends State<MapScreen> {
       onTap: () {
         HapticFeedback.selectionClick();
         setState(() {
-          if (selected) {
-            // tapping the tab you're already on collapses/expands its panel
-            _panelMinimized = !_panelMinimized;
-          } else {
-            _tab = index;
-            _selectedStation = null;
-            _followTrainId = null;
-            _settingsOpen = false;
-            _panelMinimized = false;
-          }
+          // tapping the tab you're already on deselects it, back to the map
+          _tab = selected ? 0 : index;
+          _selectedStation = null;
+          _followTrainId = null;
+          _settingsOpen = false;
         });
       },
       child: AnimatedContainer(
@@ -1101,7 +1021,6 @@ class _MapScreenState extends State<MapScreen> {
             _selectedStation = s;
             _followTrainId = null;
             _settingsOpen = false;
-            _panelMinimized = false;
             _tab = 0;
           });
         },
