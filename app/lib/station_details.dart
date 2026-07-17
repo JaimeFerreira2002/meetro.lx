@@ -62,6 +62,7 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
         StripeHeader(
           icon: Icons.pin_drop_rounded,
           title: s.name,
+          lines: s.lines, // this station's lines, not the whole network's
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
