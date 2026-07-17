@@ -23,6 +23,7 @@ import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
 import 'stations_panel.dart';
+import 'schedule.dart';
 import 'strings.dart';
 import 'trains_panel.dart';
 
@@ -166,6 +167,22 @@ class _MapScreenState extends State<MapScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Tapping the map dismisses whatever is open — the same place the nav bar's
+  /// map button lands you. Marker taps are consumed by the markers themselves,
+  /// so selecting a station doesn't immediately dismiss its own panel.
+  void _dismissPanel() {
+    final nothingOpen =
+        _tab == 0 && _selectedStation == null && _followTrainId == null && !_settingsOpen;
+    if (nothingOpen) return; // don't buzz for a tap on a bare map
+    HapticFeedback.selectionClick();
+    setState(() {
+      _tab = 0;
+      _selectedStation = null;
+      _followTrainId = null;
+      _settingsOpen = false;
+    });
+  }
+
   bool get _online => _api.connected.value;
 
   Widget _offlineBanner() => Panel(
@@ -229,7 +246,34 @@ class _MapScreenState extends State<MapScreen> {
 
   static const _initialZoom = 12.0;
   static const _stationZoom = 13.0; // below this, station dots are hidden
+  static const _defaultCenter = LatLng(38.728, -9.145); // central Lisbon
   double _zoom = _initialZoom;
+
+  /// Frame the whole network — the "take me back" escape hatch after you've
+  /// followed a train into a corner of the map.
+  ///
+  /// Fitted to the real track bounds rather than a fixed zoom: the network is
+  /// wider than a phone shows at z12, and the right zoom differs per screen.
+  void _resetView() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _followTrainId = null;
+      _selectedStation = null;
+    });
+    final points = [
+      for (final t in _track) ...t.points,
+      for (final s in _stations) s.pos,
+    ];
+    if (points.isEmpty) {
+      _mapController.move(_defaultCenter, _initialZoom); // geometry not loaded yet
+      return;
+    }
+    _mapController.fitCamera(CameraFit.bounds(
+      bounds: LatLngBounds.fromPoints(points),
+      // Leave room for the HUD above and the nav bar + panels below.
+      padding: const EdgeInsets.fromLTRB(36, 96, 36, 128),
+    ));
+  }
 
   bool get _showStations => _zoom >= _stationZoom;
 
@@ -326,9 +370,10 @@ class _MapScreenState extends State<MapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: const LatLng(38.728, -9.145),
+              initialCenter: _defaultCenter,
               initialZoom: _initialZoom,
               onPositionChanged: _onMapMoved,
+              onTap: (_, __) => _dismissPanel(),
             ),
             children: [
               TileLayer(
@@ -431,25 +476,40 @@ class _MapScreenState extends State<MapScreen> {
                     Panel(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       borderRadius: const BorderRadius.all(Radius.circular(18)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.directions_subway_rounded,
-                              color: _online ? _ink : _inkSoft, size: 20),
-                          const SizedBox(width: 8),
-                          Text('${_trains.length}',
-                              style: TextStyle(
-                                  color: _online ? _ink : _inkSoft,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1)),
-                          const SizedBox(width: 6),
-                          Text(_online ? tr('trains live', 'comboios ao vivo')
-                                       : tr('trains · last known', 'comboios · último conhecido'),
-                              style: const TextStyle(
-                                  color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
+                      // An empty map at 03:00 means the metro is shut, not that
+                      // we're broken — say so instead of counting to zero.
+                      child: _online && _trains.isEmpty && metroIsClosed()
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.bedtime_rounded, color: _inkSoft, size: 20),
+                                const SizedBox(width: 8),
+                                Text(closedLine(),
+                                    style: const TextStyle(
+                                        color: _ink,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700)),
+                              ],
+                            )
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.directions_subway_rounded,
+                                    color: _online ? _ink : _inkSoft, size: 20),
+                                const SizedBox(width: 8),
+                                Text('${_trains.length}',
+                                    style: TextStyle(
+                                        color: _online ? _ink : _inkSoft,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1)),
+                                const SizedBox(width: 6),
+                                Text(_online ? tr('trains live', 'comboios ao vivo')
+                                             : tr('trains · last known', 'comboios · último conhecido'),
+                                    style: const TextStyle(
+                                        color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
+                              ],
+                            ),
                     ),
                   if (!_online) ...[
                     if (_lastUpdate != null) const SizedBox(height: 8),
@@ -460,19 +520,33 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // Home / my-location button
+          // Reset-view + my-location buttons
           SafeArea(
             child: Align(
               alignment: Alignment.bottomRight,
               child: Padding(
                 padding: const EdgeInsets.only(right: 16, bottom: 80),
-                child: GestureDetector(
-                  onTap: _goToMyLocation,
-                  child: const Panel(
-                    padding: EdgeInsets.all(14),
-                    borderRadius: BorderRadius.all(Radius.circular(30)),
-                    child: Icon(Icons.my_location_rounded, color: _ink),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: _resetView,
+                      child: const Panel(
+                        padding: EdgeInsets.all(14),
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        child: Icon(Icons.zoom_out_map_rounded, color: _ink),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: _goToMyLocation,
+                      child: const Panel(
+                        padding: EdgeInsets.all(14),
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        child: Icon(Icons.my_location_rounded, color: _ink),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -530,6 +604,10 @@ class _MapScreenState extends State<MapScreen> {
         onToggleFavorite: () => _toggleFavorite(_selectedStation!.stopId),
       );
       key = const ValueKey('station');
+      // Match the glow to the station's line, as we do for a followed train.
+      // Interchanges serve two, so there's no single colour — leave those white.
+      final lines = _selectedStation!.lines;
+      if (lines.length == 1) glow = Color(lineColors[lines.first] ?? 0xFFFFFFFF);
     } else if (_tab == 1) {
       inner = _userLocation == null
           ? _nearbyPrompt()
@@ -637,12 +715,27 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _infoContent() {
     final disrupted = _lines.where((l) => !l.isNormal).toList();
+    final closed = metroIsClosed();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         StripeHeader(icon: Icons.info_rounded, title: tr('Service status', 'Estado do serviço')),
         const SizedBox(height: 12),
+        // Closed is the answer to "why is it empty?", so it leads.
+        if (closed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(children: [
+              const Icon(Icons.bedtime_rounded, color: _inkSoft, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('${closedTitle()} — ${opensAt().toLowerCase()}',
+                    style: const TextStyle(
+                        color: _ink, fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+            ]),
+          ),
         if (!_online)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -670,11 +763,30 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text(_online ? tr('trains circulating', 'comboios em circulação') : tr('trains (last known)', 'comboios (último conhecido)'),
+              child: Text(
+                  !_online
+                      ? tr('trains (last known)', 'comboios (último conhecido)')
+                      : closed
+                          ? tr('trains — service ended', 'comboios — serviço encerrado')
+                          : tr('trains circulating', 'comboios em circulação'),
                   style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
+        const SizedBox(height: 14),
+        Row(children: [
+          const Icon(Icons.schedule_rounded, color: _inkSoft, size: 18),
+          const SizedBox(width: 8),
+          Text(scheduleLabel(),
+              style: const TextStyle(
+                  color: _inkSoft, fontWeight: FontWeight.w500, fontSize: 13)),
+          const SizedBox(width: 8),
+          Text(serviceHours,
+              style: const TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 13)),
+          Text(' · ${everyDay()}',
+              style: const TextStyle(
+                  color: _inkSoft, fontWeight: FontWeight.w500, fontSize: 13)),
+        ]),
         const SizedBox(height: 16),
         for (final line in lineOrder) _lineRow(line),
         const SizedBox(height: 16),

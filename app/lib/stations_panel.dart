@@ -1,7 +1,9 @@
 /// Expandable list of all stations; each row expands to show the next trains
 /// (fetched from GET /station/{id}/arrivals on demand).
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
@@ -23,6 +25,8 @@ class _StationsListState extends State<StationsList> {
   // stopId -> arrivals (null = loading)
   final Map<String, List<Arrival>?> _arrivals = {};
 
+  String? _lineFilter; // null = every line
+
   Future<void> _load(String stopId) async {
     setState(() => _arrivals[stopId] = null);
     final a = await widget.api.arrivals(stopId);
@@ -31,13 +35,21 @@ class _StationsListState extends State<StationsList> {
 
   @override
   Widget build(BuildContext context) {
-    final stations = [...widget.stations]..sort((a, b) => a.name.compareTo(b.name));
+    final all = [...widget.stations]..sort((a, b) => a.name.compareTo(b.name));
+    final stations =
+        _lineFilter == null ? all : all.where((s) => s.lines.contains(_lineFilter)).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StripeHeader(icon: Icons.pin_drop_rounded, title: '${tr('Stations', 'Estações')} (${stations.length})'),
-        const SizedBox(height: 8),
+        StripeHeader(
+          icon: Icons.pin_drop_rounded,
+          title: '${tr('Stations', 'Estações')} (${stations.length})',
+          lines: _lineFilter == null ? null : [_lineFilter!],
+        ),
+        const SizedBox(height: 10),
+        _filterBar(),
+        const SizedBox(height: 4),
         Flexible(
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -52,8 +64,58 @@ class _StationsListState extends State<StationsList> {
     );
   }
 
+  Widget _filterBar() => SizedBox(
+        height: 32,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            _chip(null),
+            for (final line in lineOrder) _chip(line),
+          ],
+        ),
+      );
+
+  Widget _chip(String? line) {
+    final selected = _lineFilter == line;
+    final color = line == null ? Colors.black87 : Color(lineColors[line]!);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _lineFilter = line);
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: line == null ? 14 : 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? color.withOpacity(0.15) : Colors.black.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? color : Colors.transparent, width: 1.5),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (line != null) ...[
+                LineLogo(line, height: 14),
+                const SizedBox(width: 6),
+              ],
+              Text(line ?? tr('All', 'Todas'),
+                  style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _tile(Station s) {
     return ExpansionTile(
+      // Without a stable key, expansion state sticks to list position — after
+      // filtering, a different station would appear open.
+      key: ValueKey(s.stopId),
       tilePadding: EdgeInsets.zero,
       backgroundColor: Colors.transparent,
       collapsedBackgroundColor: Colors.transparent,
