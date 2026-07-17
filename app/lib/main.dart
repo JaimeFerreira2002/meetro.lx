@@ -333,7 +333,7 @@ class _MapScreenState extends State<MapScreen> {
             children: [
               TileLayer(
                 urlTemplate: _style.url,
-                userAgentPackageName: 'pt.metrolisboa.ar',
+                userAgentPackageName: 'com.jaimeferreira.meetro',
               ),
               PolylineLayer(
                 polylines: _track
