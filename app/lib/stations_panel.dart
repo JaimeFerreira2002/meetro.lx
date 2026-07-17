@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'strings.dart';
 
 String fmtEta(double s) => '${(s / 60).floor()}:${(s % 60).round().toString().padLeft(2, '0')}';
 
@@ -35,7 +36,7 @@ class _StationsListState extends State<StationsList> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        StripeHeader(icon: Icons.pin_drop_rounded, title: 'Stations (${stations.length})'),
+        StripeHeader(icon: Icons.pin_drop_rounded, title: '${tr('Stations', 'Estações')} (${stations.length})'),
         const SizedBox(height: 8),
         Flexible(
           child: Theme(
@@ -102,7 +103,7 @@ class _StationsListState extends State<StationsList> {
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
-              widget.api.connected.value ? 'No upcoming trains' : "Can't reach the server",
+              widget.api.connected.value ? tr('No upcoming trains', 'Sem próximos comboios') : tr("Can't reach the server", 'Sem ligação ao servidor'),
               style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w500)),
         ),
       );

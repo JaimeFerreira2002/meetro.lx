@@ -1,17 +1,21 @@
 /// Wire-contract models — mirror server/app/models.py.
 import 'package:latlong2/latlong.dart';
 
-/// Official Metro Lisboa line colours — the single source of truth for line
-/// colour anywhere in the app (markers, stripes, track polylines, splash).
+/// Line colours — the single source of truth for line colour anywhere in the
+/// app (markers, stripes, track polylines, panels).
+///
+/// These are taken from the official line pictograms in assets/icons/*.svg,
+/// which the meetro logo's stripe also matches — so the map, the pictograms
+/// and the brand all agree.
 const lineColors = <String, int>{
-  'Amarela': 0xFFFDD900,
-  'Azul': 0xFF326DC9,
-  'Verde': 0xFF00D8B0,
-  'Vermelha': 0xFFED0E69,
+  'Amarela': 0xFFF7A800,
+  'Azul': 0xFF2F7DE1,
+  'Verde': 0xFF00A19B,
+  'Vermelha': 0xFFEA1D76,
 };
 
 /// Favourite-star gold (matches the yellow line). ARGB int, like [lineColors].
-const starColor = 0xFFFDD900;
+const starColor = 0xFFF7A800;
 
 /// Display order for the four lines.
 const lineOrder = <String>['Azul', 'Amarela', 'Verde', 'Vermelha'];

@@ -2,7 +2,7 @@
 /// DRAFT copy — review and adapt (and host the privacy policy) before release.
 import 'package:flutter/material.dart';
 
-const appName = 'Lisbon Metro Live'; // working title — pending the naming decision
+const appName = 'meetro'; // meetro .Lisboa
 const appVersion = '0.1.0';
 
 const disclaimer =

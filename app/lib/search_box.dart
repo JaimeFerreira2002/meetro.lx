@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'panel.dart';
+import 'strings.dart';
 
 class SearchBox extends StatefulWidget {
   final MetroApi api;
@@ -81,10 +82,10 @@ class _SearchBoxState extends State<SearchBox> {
                   onSubmitted: _onSubmit,
                   textInputAction: TextInputAction.search,
                   style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
-                    hintText: 'Search stations or places',
+                    hintText: tr('Search stations or places', 'Procurar estações ou locais'),
                     hintStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w400),
                   ),
                 ),

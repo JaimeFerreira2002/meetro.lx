@@ -5,7 +5,7 @@
 _Last updated: [DATE]_
 
 ## 1. Unofficial service
-**Lisbon Metro Live** is an independent, unofficial app. It is **not affiliated
+**meetro** is an independent, unofficial app. It is **not affiliated
 with, endorsed by, or operated by Metropolitano de Lisboa, E.P.E.** All transit
 data originates from Metro Lisboa's public API.
 

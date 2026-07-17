@@ -16,11 +16,29 @@ dependencies:
   geolocator: ^13.0.1
   google_fonts: ^6.2.1
   shared_preferences: ^2.2.2
+  flutter_svg: ^2.0.10   # the official line pictograms ship as SVG
 
 dev_dependencies:
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/logos/
+
+# App icon:  dart run flutter_launcher_icons
+# Regenerates ios/Runner/Assets.xcassets/AppIcon.appiconset (all 15 sizes) —
+# without this the icon stays Flutter's default blue "F".
+#
+# image_path must be a SQUARE mark. The full logo is a 4.2:1 wordmark (only 22%
+# of its canvas height), so at icon size it reads as tiny text in a white box.
+# Point this at a square mark (e.g. the "m", or the four-line stripe) before
+# shipping.
+flutter_launcher_icons:
+  ios: true
+  android: false
+  image_path: "assets/logos/metro_full.png"
+  remove_alpha_ios: true
+  background_color_ios: "#ffffff"

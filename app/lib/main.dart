@@ -13,6 +13,7 @@ import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dar
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'legal.dart';
+import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
@@ -22,16 +23,22 @@ import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
 import 'stations_panel.dart';
+import 'strings.dart';
 import 'trains_panel.dart';
 
-void main() => runApp(const MetroApp());
+void main() async {
+  // Resolve the language before the first frame (saved choice, else device locale).
+  WidgetsFlutterBinding.ensureInitialized();
+  await loadLang();
+  runApp(const MetroApp());
+}
 
 class MetroApp extends StatelessWidget {
   const MetroApp({super.key});
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Metro Lisboa AR',
+        title: 'meetro',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
@@ -77,10 +84,10 @@ extension MapStyleX on MapStyle {
         MapStyle.dark => 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
       };
   String get label => switch (this) {
-        MapStyle.cozy => 'Cozy',
-        MapStyle.minimal => 'Minimal',
-        MapStyle.light => 'Light',
-        MapStyle.dark => 'Dark',
+        MapStyle.cozy => tr('Cozy', 'Acolhedor'),
+        MapStyle.minimal => tr('Minimal', 'Mínimo'),
+        MapStyle.light => tr('Light', 'Claro'),
+        MapStyle.dark => tr('Dark', 'Escuro'),
       };
   IconData get icon => switch (this) {
         MapStyle.cozy => Icons.local_cafe_rounded,
@@ -118,7 +125,6 @@ class _MapScreenState extends State<MapScreen> {
   Station? _selectedStation;
   String? _followTrainId; // camera auto-follows this train
   bool _settingsOpen = false;
-  bool _panelMinimized = false;
   bool _didAutoOpenNearby = false;
   Set<String> _favorites = {}; // favourited stop_ids, persisted locally
   DateTime? _lastUpdate; // when the last live snapshot arrived
@@ -172,8 +178,8 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(width: 8),
             Text(
               _lastUpdate == null
-                  ? "Can't reach the server · retrying…"
-                  : 'No connection · showing last known',
+                  ? tr("Can't reach the server · retrying…", 'Sem ligação ao servidor · a tentar…')
+                  : tr('No connection · showing last known', 'Sem ligação · a mostrar o último conhecido'),
               style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
@@ -201,7 +207,6 @@ class _MapScreenState extends State<MapScreen> {
       _followTrainId = t.trainId;
       _selectedStation = null;
       _settingsOpen = false;
-      _panelMinimized = false;
     });
     _mapController.move(t.pos, 15);
   }
@@ -269,13 +274,14 @@ class _MapScreenState extends State<MapScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Row(children: [
+          Row(children: [
             Icon(Icons.near_me_rounded, color: _ink, size: 22),
             SizedBox(width: 8),
-            Text('Nearby', style: TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
+            Text(tr('Nearby', 'Perto'), style: const TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w700)),
           ]),
           const SizedBox(height: 12),
-          Text('Enable location to see the stations closest to you and their next trains.',
+          Text(tr('Enable location to see the stations closest to you and their next trains.',
+                  'Ative a localização para ver as estações mais próximas e os próximos comboios.'),
               style: TextStyle(color: _inkSoft, height: 1.4)),
           const SizedBox(height: 12),
           GestureDetector(
@@ -283,7 +289,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(color: _ink, borderRadius: BorderRadius.circular(14)),
-              child: const Text('Enable location',
+              child: Text(tr('Enable location', 'Ativar localização'),
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             ),
           ),
@@ -308,7 +314,6 @@ class _MapScreenState extends State<MapScreen> {
       _settingsOpen = false;
       if (station != null) {
         _selectedStation = station;
-        _panelMinimized = false;
       }
     });
   }
@@ -328,7 +333,7 @@ class _MapScreenState extends State<MapScreen> {
             children: [
               TileLayer(
                 urlTemplate: _style.url,
-                userAgentPackageName: 'pt.metrolisboa.ar',
+                userAgentPackageName: 'com.jaimeferreira.meetro',
               ),
               PolylineLayer(
                 polylines: _track
@@ -364,9 +369,8 @@ class _MapScreenState extends State<MapScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Image.asset(
-                          'assets/icons/metro.png',
-                          width: 14,
-                          height: 14,
+                          'assets/icons/logo_metro.png',
+                          height: 18,
                           errorBuilder: (_, __, ___) => const Icon(
                               Icons.directions_subway_rounded,
                               size: 12,
@@ -409,7 +413,6 @@ class _MapScreenState extends State<MapScreen> {
                             _settingsOpen = !_settingsOpen;
                             _selectedStation = null;
                             _followTrainId = null;
-                            _panelMinimized = false;
                           });
                         },
                         child: Panel(
@@ -428,30 +431,23 @@ class _MapScreenState extends State<MapScreen> {
                     Panel(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       borderRadius: const BorderRadius.all(Radius.circular(18)),
-                      child: Column(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.directions_subway_rounded,
-                                  color: _online ? _ink : _inkSoft, size: 20),
-                              const SizedBox(width: 8),
-                              Text('${_trains.length}',
-                                  style: TextStyle(
-                                      color: _online ? _ink : _inkSoft,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1)),
-                              const SizedBox(width: 6),
-                              Text(_online ? 'trains live' : 'trains · last known',
-                                  style: const TextStyle(
-                                      color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          const LineStripe(width: 72, height: 3, gap: 2),
+                          Icon(Icons.directions_subway_rounded,
+                              color: _online ? _ink : _inkSoft, size: 20),
+                          const SizedBox(width: 8),
+                          Text('${_trains.length}',
+                              style: TextStyle(
+                                  color: _online ? _ink : _inkSoft,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1)),
+                          const SizedBox(width: 6),
+                          Text(_online ? tr('trains live', 'comboios ao vivo')
+                                       : tr('trains · last known', 'comboios · último conhecido'),
+                              style: const TextStyle(
+                                  color: _inkSoft, fontSize: 13, fontWeight: FontWeight.w500)),
                         ],
                       ),
                     ),
@@ -516,16 +512,13 @@ class _MapScreenState extends State<MapScreen> {
   Widget _panelContent() {
     final Widget? inner;
     final Key key;
-    final String title; // shown on the minimized pill
     var glow = Colors.white; // panel halo — tinted for a followed train
     if (_settingsOpen) {
       inner = SingleChildScrollView(child: _settingsContent());
       key = const ValueKey('settings');
-      title = 'Settings';
     } else if (_followTrainId != null) {
       inner = _followContent();
       key = const ValueKey('follow');
-      title = 'Train $_followTrainId';
       final match = _trains.where((t) => t.trainId == _followTrainId);
       if (match.isNotEmpty) glow = Color(lineColors[match.first.line] ?? 0xFFFFFFFF);
     } else if (_selectedStation != null) {
@@ -537,7 +530,6 @@ class _MapScreenState extends State<MapScreen> {
         onToggleFavorite: () => _toggleFavorite(_selectedStation!.stopId),
       );
       key = const ValueKey('station');
-      title = _selectedStation!.name;
     } else if (_tab == 1) {
       inner = _userLocation == null
           ? _nearbyPrompt()
@@ -550,93 +542,25 @@ class _MapScreenState extends State<MapScreen> {
               onToggleFavorite: _toggleFavorite,
             );
       key = const ValueKey('nearby');
-      title = 'Nearby';
     } else if (_tab == 2) {
       inner = TrainsList(trains: _trains, onSelect: _followTrain);
       key = const ValueKey('trains');
-      title = 'Trains';
     } else if (_tab == 3) {
       inner = StationsList(api: _api, stations: _stations);
       key = const ValueKey('stations');
-      title = 'Stations';
     } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
-      title = 'Info';
     } else {
       return const SizedBox.shrink(key: ValueKey('none'));
-    }
-
-    // Minimized: collapse to a pill that restores the panel on tap.
-    if (_panelMinimized) {
-      return GestureDetector(
-        key: const ValueKey('minimized'),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          setState(() => _panelMinimized = false);
-        },
-        child: Panel(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
-          glowColor: glow,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.keyboard_arrow_up_rounded, color: _inkSoft, size: 20),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _ink, fontWeight: FontWeight.w700)),
-              ),
-            ],
-          ),
-        ),
-      );
     }
 
     return ConstrainedBox(
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
-      child: Panel(
-        glowColor: glow,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _grabber(),
-            Flexible(child: inner),
-          ],
-        ),
-      ),
+      child: Panel(glowColor: glow, child: inner),
     );
   }
-
-  void _minimizePanel() {
-    HapticFeedback.lightImpact();
-    setState(() => _panelMinimized = true);
-  }
-
-  /// Drag-handle at the top of a panel: tap or swipe down to minimize.
-  Widget _grabber() => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _minimizePanel,
-        onVerticalDragEnd: (d) {
-          if ((d.primaryVelocity ?? 0) > 0) _minimizePanel();
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.only(bottom: 10),
-          alignment: Alignment.center,
-          child: Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      );
 
   Widget _followContent() {
     final matches = _trains.where((t) => t.trainId == _followTrainId).toList();
@@ -651,11 +575,13 @@ class _MapScreenState extends State<MapScreen> {
     if (matches.isEmpty) {
       return Column(mainAxisSize: MainAxisSize.min, children: [
         StripeHeader(
-            icon: Icons.directions_subway_rounded, title: 'Train $_followTrainId', trailing: close),
+            icon: Icons.directions_subway_rounded,
+            title: '${tr('Train', 'Comboio')} $_followTrainId',
+            trailing: close),
         const SizedBox(height: 12),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
-          child: Text('This train is no longer live',
+          child: Text(tr('This train is no longer live', 'Este comboio já não está ativo'),
               style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
         ),
       ]);
@@ -668,7 +594,7 @@ class _MapScreenState extends State<MapScreen> {
       children: [
         StripeHeader(
           icon: Icons.directions_subway_rounded,
-          title: 'Train ${t.trainId}',
+          title: '${tr('Train', 'Comboio')} ${t.trainId}',
           trailing: close,
           lines: [t.line], // this train's own line, not all four
         ),
@@ -678,7 +604,7 @@ class _MapScreenState extends State<MapScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              LineLogo(t.line, height: 16),
               const SizedBox(width: 6),
               Text(t.line, style: const TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600)),
             ]),
@@ -686,7 +612,7 @@ class _MapScreenState extends State<MapScreen> {
           const Spacer(),
           const Icon(Icons.my_location_rounded, color: _inkSoft, size: 16),
           const SizedBox(width: 4),
-          const Text('following', style: TextStyle(color: _inkSoft, fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(tr('following', 'a seguir'), style: const TextStyle(color: _inkSoft, fontSize: 12, fontWeight: FontWeight.w500)),
         ]),
         const SizedBox(height: 14),
         Text('→ ${t.destinoName}',
@@ -694,7 +620,7 @@ class _MapScreenState extends State<MapScreen> {
         const SizedBox(height: 10),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Expanded(
-            child: Text('Next: ${t.nextStopName}',
+            child: Text('${tr('Next', 'Próxima')}: ${t.nextStopName}',
                 style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
           ),
           Text(fmtEta(t.etaSeconds),
@@ -715,7 +641,7 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const StripeHeader(icon: Icons.info_rounded, title: 'Service status'),
+        StripeHeader(icon: Icons.info_rounded, title: tr('Service status', 'Estado do serviço')),
         const SizedBox(height: 12),
         if (!_online)
           Padding(
@@ -726,8 +652,8 @@ class _MapScreenState extends State<MapScreen> {
               Expanded(
                 child: Text(
                     _lastUpdate == null
-                        ? "Can't reach the server — retrying…"
-                        : 'No connection — the figures below are the last known.',
+                        ? tr("Can't reach the server — retrying…", 'Sem ligação ao servidor — a tentar…')
+                        : tr('No connection — the figures below are the last known.', 'Sem ligação — os valores abaixo são os últimos conhecidos.'),
                     style: const TextStyle(color: _warn, fontWeight: FontWeight.w600, fontSize: 12)),
               ),
             ]),
@@ -744,7 +670,7 @@ class _MapScreenState extends State<MapScreen> {
             const SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text(_online ? 'trains circulating' : 'trains (last known)',
+              child: Text(_online ? tr('trains circulating', 'comboios em circulação') : tr('trains (last known)', 'comboios (último conhecido)'),
                   style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
             ),
           ],
@@ -760,10 +686,10 @@ class _MapScreenState extends State<MapScreen> {
         ]),
         const SizedBox(height: 6),
         if (disrupted.isEmpty)
-          const Row(children: [
+          Row(children: [
             Icon(Icons.check_circle, color: _ok, size: 18),
             SizedBox(width: 8),
-            Text('All lines running normally',
+            Text(tr('All lines running normally', 'Todas as linhas em serviço normal'),
                 style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
           ])
         else
@@ -787,22 +713,15 @@ class _MapScreenState extends State<MapScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: Color(lineColors[line] ?? 0xFFFFFFFF),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
+          SizedBox(width: 26, child: Center(child: LineLogo(line, height: 22))),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(line, style: const TextStyle(color: _ink, fontWeight: FontWeight.w600)),
           ),
           Text('${_countFor(line)}',
               style: const TextStyle(color: _ink, fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(width: 4),
-          const Text('trains', style: TextStyle(color: _inkSoft, fontSize: 12)),
+          Text(tr('trains', 'comboios'), style: const TextStyle(color: _inkSoft, fontSize: 12)),
           const SizedBox(width: 12),
           Icon(ok ? Icons.check_circle : Icons.warning_amber_rounded,
               color: ok ? _ok : _warn, size: 18),
@@ -818,7 +737,7 @@ class _MapScreenState extends State<MapScreen> {
       children: [
         StripeHeader(
           icon: Icons.settings_rounded,
-          title: 'Settings',
+          title: tr('Settings', 'Definições'),
           trailing: GestureDetector(
             onTap: () => setState(() => _settingsOpen = false),
             child: Container(
@@ -829,10 +748,10 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        const Row(children: [
+        Row(children: [
           Icon(Icons.layers_rounded, color: _inkSoft, size: 18),
           SizedBox(width: 6),
-          Text('Map style', style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+          Text(tr('Map style', 'Estilo do mapa'), style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
         ]),
         const SizedBox(height: 10),
         Row(
@@ -844,6 +763,19 @@ class _MapScreenState extends State<MapScreen> {
           ],
         ),
         const SizedBox(height: 20),
+        Row(children: [
+          const Icon(Icons.translate_rounded, color: _inkSoft, size: 18),
+          const SizedBox(width: 6),
+          Text(tr('Language', 'Idioma'),
+              style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          _langChip(AppLang.en, 'English'),
+          const SizedBox(width: 10),
+          _langChip(AppLang.pt, 'Português'),
+        ]),
+        const SizedBox(height: 20),
         _aboutSection(),
       ],
     );
@@ -854,10 +786,10 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Row(children: [
+        Row(children: [
           Icon(Icons.info_outline_rounded, color: _inkSoft, size: 18),
           SizedBox(width: 6),
-          Text('About & credits', style: TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
+          Text(tr('About & credits', 'Sobre e créditos'), style: const TextStyle(color: _inkSoft, fontWeight: FontWeight.w500)),
         ]),
         const SizedBox(height: 10),
         Text(disclaimer, style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.4)),
@@ -897,6 +829,35 @@ class _MapScreenState extends State<MapScreen> {
             ),
             const Icon(Icons.chevron_right_rounded, color: _inkSoft, size: 20),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _langChip(AppLang lang, String label) {
+    final selected = appLang == lang;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () async {
+          HapticFeedback.selectionClick();
+          await setLang(lang);
+          if (mounted) setState(() {}); // re-render every tr() in the tree
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? _ink : Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : _ink,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
         ),
       ),
     );
@@ -959,11 +920,11 @@ class _MapScreenState extends State<MapScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Map sits in the middle as the standout "home" button
-                  _navItem(Icons.near_me_rounded, 'Nearby', 1),
-                  _navItem(Icons.directions_subway_rounded, 'Trains', 2),
+                  _navItem(Icons.explore_rounded, tr('Nearby', 'Perto'), 1),
+                  _navItem(Icons.directions_subway_rounded, tr('Trains', 'Comboios'), 2),
                   _mapNavButton(),
-                  _navItem(Icons.pin_drop_rounded, 'Stations', 3),
-                  _navItem(Icons.info_rounded, 'Info', 4),
+                  _navItem(Icons.pin_drop_rounded, tr('Stations', 'Estações'), 3),
+                  _navItem(Icons.info_rounded, tr('Info', 'Info'), 4),
                 ],
               ),
             ),
@@ -986,7 +947,6 @@ class _MapScreenState extends State<MapScreen> {
           _selectedStation = null;
           _followTrainId = null;
           _settingsOpen = false;
-          _panelMinimized = false;
         });
       },
       child: Container(
@@ -1018,11 +978,11 @@ class _MapScreenState extends State<MapScreen> {
       onTap: () {
         HapticFeedback.selectionClick();
         setState(() {
-          _tab = index;
+          // tapping the tab you're already on deselects it, back to the map
+          _tab = selected ? 0 : index;
           _selectedStation = null;
           _followTrainId = null;
           _settingsOpen = false;
-          _panelMinimized = false; // picking a tab restores the panel
         });
       },
       child: AnimatedContainer(
@@ -1061,7 +1021,6 @@ class _MapScreenState extends State<MapScreen> {
             _selectedStation = s;
             _followTrainId = null;
             _settingsOpen = false;
-            _panelMinimized = false;
             _tab = 0;
           });
         },

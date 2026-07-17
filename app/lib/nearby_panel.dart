@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'strings.dart';
 import 'stations_panel.dart' show fmtEta;
 
 double _distanceM(LatLng a, LatLng b) {
@@ -103,7 +104,7 @@ class _NearbyPanelState extends State<NearbyPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const StripeHeader(icon: Icons.near_me_rounded, title: 'Nearby'),
+        StripeHeader(icon: Icons.near_me_rounded, title: tr('Nearby', 'Perto')),
         const SizedBox(height: 8),
         Flexible(
           child: SingleChildScrollView(
@@ -111,11 +112,11 @@ class _NearbyPanelState extends State<NearbyPanel> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_favStations.isNotEmpty) ...[
-                  _sectionLabel(Icons.star_rounded, 'Favourites'),
+                  _sectionLabel(Icons.star_rounded, tr('Favourites', 'Favoritas')),
                   for (final s in _favStations) _stationBlock(s),
                   const SizedBox(height: 14),
                 ],
-                _sectionLabel(Icons.near_me_rounded, 'Closest'),
+                _sectionLabel(Icons.explore_rounded, tr('Closest', 'Mais próximas')),
                 for (final s in _nearest) _stationBlock(s),
               ],
             ),
@@ -193,8 +194,8 @@ class _NearbyPanelState extends State<NearbyPanel> {
             else if (arrivals.isEmpty)
               Text(
                   widget.api.connected.value
-                      ? 'No upcoming trains'
-                      : "Can't reach the server",
+                      ? tr('No upcoming trains', 'Sem próximos comboios')
+                      : tr("Can't reach the server", 'Sem ligação ao servidor'),
                   style: const TextStyle(color: Colors.black38, fontSize: 12))
             else
               for (final a in arrivals.take(3))

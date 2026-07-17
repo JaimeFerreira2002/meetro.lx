@@ -6,9 +6,14 @@ submission. Items marked **[you]** require the account holder.
 ## Legal / must-resolve before public release
 - [ ] **[you] Confirm Metro Lisboa's API terms** permit a published third-party app
       (redistribution of `EstadoServicoML` data). This is the biggest external risk.
-- [ ] **Trademark / name:** the app name and icon must **not** imply an official Metro
-      Lisboa product. Keep the "unofficial" disclaimer prominent; avoid the Metro
-      Lisboa logo/wordmark. Finalize a distinct name (see the naming task).
+- [x] **Name:** **meetro** (`.Lisboa`) — distinct, doesn't imply an official Metro
+      Lisboa product. Own logo in `assets/logos/`.
+- [ ] **Trademark — still open:** the app shows Metro de Lisboa's **logo**
+      (bottom-left credit) and their **line pictograms**. Those are their marks; using
+      them can read as official, which our own Terms disclaim. Keep the "unofficial"
+      disclaimer prominent and get comfortable with this before a public submission
+      (a common middle ground: their logo only in About next to "Data provided by",
+      not persistently on the map).
 - [ ] **Tile usage limits:** CARTO's free basemaps and OSM/Nominatim public servers
       are **not** licensed for high-volume production. For real traffic, move to a
       paid tile plan and a proper geocoding provider (or self-host).

@@ -12,7 +12,7 @@ import WidgetKit
 struct MetroWidgetControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(
-            kind: "pt.metrolisboa.metroLisboaAr.MetroWidget",
+            kind: "com.jaimeferreira.meetro.MetroWidget",
             provider: Provider()
         ) { value in
             ControlWidgetToggle(
