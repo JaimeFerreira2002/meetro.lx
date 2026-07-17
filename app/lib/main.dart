@@ -2,6 +2,7 @@
 /// This is also the app's fallback/indoor mode; the AR camera view (Phase 2)
 /// is a separate native platform-view screen that reuses [MetroApi].
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ar_tunnels.dart';
 import 'legal.dart';
 import 'line_logo.dart';
 import 'line_stripe.dart';
@@ -520,7 +522,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // Reset-view + my-location buttons
+          // AR + reset-view + my-location buttons
           SafeArea(
             child: Align(
               alignment: Alignment.bottomRight,
@@ -529,6 +531,23 @@ class _MapScreenState extends State<MapScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // ARKit is iOS-only; hide the entry point elsewhere.
+                    if (Platform.isIOS) ...[
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => ArTunnelsScreen(api: _api)),
+                          );
+                        },
+                        child: const Panel(
+                          padding: EdgeInsets.all(14),
+                          borderRadius: BorderRadius.all(Radius.circular(30)),
+                          child: Icon(Icons.view_in_ar_rounded, color: _ink),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     GestureDetector(
                       onTap: _resetView,
                       child: const Panel(
