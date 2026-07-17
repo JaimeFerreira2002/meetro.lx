@@ -1,31 +1,64 @@
-# metro-lisboa-ar
+# meetro
 
-Mobile AR app that overlays live Lisbon Metro trains in 3D space through the phone
-camera. Train positions are interpolated from the official Metro Lisboa
-[`EstadoServicoML` API](https://api.metrolisboa.pt/store/apis/info?name=EstadoServicoML&version=1.0.1&provider=admin)
-wait-time data — the API has no position endpoint, but the same train ID appears at
-multiple stations with decreasing ETAs, which is enough to place it on the track.
+Live Lisbon Metro trains on a map — and, later, overlaid through the phone camera in AR.
 
-See [PLANNING.md](PLANNING.md) for the full design, architecture, and roadmap.
+Train positions come from the official Metro Lisboa
+[`EstadoServicoML` API](https://api.metrolisboa.pt/store/apis/info?name=EstadoServicoML&version=1.0.1&provider=admin),
+which **has no train-position endpoint**. It reports wait times per platform. Because
+the same train ID appears at up to 15 stations ahead with rising ETAs, each train is
+effectively broadcasting its own itinerary — enough to place it on the track and watch
+it move. [How that works →](docs/ARCHITECTURE.md)
 
-## Status
+Unofficial, and not affiliated with Metropolitano de Lisboa.
 
-The interpolation premise was validated against live data, and the Phase 1 backend
-is built. To run it, see [server/README.md](server/README.md):
+## Documentation
+
+**[docs/](docs/README.md)** — start with [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+| | |
+|---|---|
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | How it works and why it's built this way |
+| [DEVELOPMENT](docs/DEVELOPMENT.md) | Run it, ship it, and the errors you'll hit |
+| [SERVER](docs/SERVER.md) · [APP](docs/APP.md) · [WIDGET](docs/WIDGET.md) | Module by module |
+| [API](docs/API.md) | Metro's API, live-verified |
+| [SECURITY](docs/SECURITY.md) · [LEGAL](docs/LEGAL.md) | What's exposed, what's unresolved |
+
+## Quick start
 
 ```bash
+# Server — needs Metro API credentials (free, api.metrolisboa.pt/store)
 cd server
-python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
-cp .env.example .env   # then paste ML_BASIC_AUTH from the API store
-./.venv/bin/uvicorn app.main:app --port 8000
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # paste ML_BASIC_AUTH
+uvicorn app.main:app --reload # then http://localhost:8000/ for the debug map
+
+# App
+cd app
+flutter pub get
+flutter run --dart-define=API_BASE=http://localhost:8000
 ```
 
-Then open <http://localhost:8000/> for the live 2D map.
+`--dart-define=API_BASE` is **not optional** — it's compiled in, and the default
+(`localhost`) means "this phone" on a device. Full setup in
+[DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Layout
 
 ```
-server/   Phase 1 — FastAPI interpolation service + SSE feed + 2D debug map
-data/     baked OSM track geometry + build script
-app/      Phase 2 — Flutter client (2D map now; native iOS AR view later)
+server/   FastAPI — polls Metro every 12 s, estimates positions, streams over SSE
+data/     Baked OSM tunnel geometry + build script
+app/      Flutter client (lib/) + iOS home-screen widget (ios/MetroWidget/)
+docs/     Documentation
 ```
+
+## Status
+
+Working end to end: the server runs on Fly, the app runs on a real iPhone, the widget
+shows the next trains at your closest station, and it speaks English and Portuguese.
+
+Not done: the AR view ([PR #11](https://github.com/JaimeFerreira2002/metro-lisboa-ar/pull/11),
+parked), a square app icon, and the unresolved items in
+[LEGAL.md](docs/LEGAL.md) — which block publishing, not personal use.
+
+See [PLANNING.md](PLANNING.md) for the original design and roadmap.
