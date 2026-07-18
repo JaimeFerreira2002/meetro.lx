@@ -1,5 +1,7 @@
 /// About / credits / legal text and a simple viewer screen.
-/// DRAFT copy — review and adapt (and host the privacy policy) before release.
+/// Mirrors the hosted policy at https://jaimeferreira2002.github.io/meetro.lx —
+/// keep the two in sync. Not lawyer-reviewed; the contact email is still a
+/// placeholder (CONTACT_EMAIL) pending a real address.
 import 'package:flutter/material.dart';
 
 const appName = 'meetro'; // meetro .Lisboa
@@ -19,9 +21,8 @@ const credits = <(String, String)>[
 ];
 
 const privacyPolicy = '''
-DRAFT — review with a lawyer and replace placeholders before publishing.
-
-Last updated: [DATE]
+Last updated: 18 July 2026
+Online: https://jaimeferreira2002.github.io/meetro.lx/privacy.html
 
 $appName ("the app") respects your privacy. This policy explains what the app
 does and does not do with your information.
@@ -55,13 +56,12 @@ CHANGES
   date.
 
 CONTACT
-• [YOUR CONTACT EMAIL]
+• CONTACT_EMAIL
 ''';
 
 const termsOfUse = '''
-DRAFT — review with a lawyer and replace placeholders before publishing.
-
-Last updated: [DATE]
+Last updated: 18 July 2026
+Online: https://jaimeferreira2002.github.io/meetro.lx/terms.html
 
 1. UNOFFICIAL SERVICE
 $appName is an independent, unofficial app. It is not affiliated with,
@@ -94,7 +94,7 @@ law rules.
 We may update these terms; continued use constitutes acceptance.
 
 CONTACT
-[YOUR CONTACT EMAIL]
+CONTACT_EMAIL
 ''';
 
 /// Full-screen scrollable viewer for a legal document.

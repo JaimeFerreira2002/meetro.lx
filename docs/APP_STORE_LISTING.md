@@ -127,9 +127,9 @@ Live Lisbon Metro trains, favourite stations, line status, and a home-screen wid
 [MARKETING_URL — e.g. a landing page or the repo]
 ```
 
-**Privacy policy URL** (required) — [#23], host `docs/PRIVACY.md`
+**Privacy policy URL** (required) — hosted ✅
 ```
-[PRIVACY_URL]
+https://jaimeferreira2002.github.io/meetro.lx/privacy.html
 ```
 
 **App Privacy (nutrition labels)**
