@@ -100,6 +100,9 @@ extension MapStyleX on MapStyle {
       };
 }
 
+// AR is gated out of the beta; enable with --dart-define=ENABLE_AR=true.
+const _arEnabled = bool.fromEnvironment('ENABLE_AR');
+
 // Cozy palette
 const _ink = Colors.black87;
 const _inkSoft = Colors.black45;
@@ -531,8 +534,10 @@ class _MapScreenState extends State<MapScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ARKit is iOS-only; hide the entry point elsewhere.
-                    if (Platform.isIOS) ...[
+                    // AR is a planned feature, off by default so it stays out
+                    // of the beta. Build with --dart-define=ENABLE_AR=true to
+                    // show it. Also iOS-only (ARKit).
+                    if (_arEnabled && Platform.isIOS) ...[
                       GestureDetector(
                         onTap: () {
                           HapticFeedback.selectionClick();
