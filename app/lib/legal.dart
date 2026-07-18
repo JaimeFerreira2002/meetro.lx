@@ -1,7 +1,6 @@
 /// About / credits / legal text and a simple viewer screen.
 /// Mirrors the hosted policy at https://jaimeferreira2002.github.io/meetro.lx —
-/// keep the two in sync. Not lawyer-reviewed; the contact email is still a
-/// placeholder (CONTACT_EMAIL) pending a real address.
+/// keep the two in sync. Not yet lawyer-reviewed.
 import 'package:flutter/material.dart';
 
 const appName = 'meetro'; // meetro .Lisboa
@@ -56,7 +55,7 @@ CHANGES
   date.
 
 CONTACT
-• CONTACT_EMAIL
+• jaimeslopesferreira@gmail.com
 ''';
 
 const termsOfUse = '''
@@ -94,7 +93,7 @@ law rules.
 We may update these terms; continued use constitutes acceptance.
 
 CONTACT
-CONTACT_EMAIL
+jaimeslopesferreira@gmail.com
 ''';
 
 /// Full-screen scrollable viewer for a legal document.
