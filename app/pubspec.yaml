@@ -29,16 +29,12 @@ flutter:
     - assets/logos/
 
 # App icon:  dart run flutter_launcher_icons
-# Regenerates ios/Runner/Assets.xcassets/AppIcon.appiconset (all 15 sizes) —
-# without this the icon stays Flutter's default blue "F".
-#
-# image_path must be a SQUARE mark. The full logo is a 4.2:1 wordmark (only 22%
-# of its canvas height), so at icon size it reads as tiny text in a white box.
-# Point this at a square mark (e.g. the "m", or the four-line stripe) before
-# shipping.
+# Regenerates ios/Runner/Assets.xcassets/AppIcon.appiconset (all sizes).
+# app_icon.png is a square mark: the logo's four line-colour speed-lines on
+# charcoal (generated, staggered so it reads as motion, not a menu icon).
 flutter_launcher_icons:
   ios: true
   android: false
-  image_path: "assets/logos/metro_full.png"
+  image_path: "assets/logos/app_icon.png"
   remove_alpha_ios: true
-  background_color_ios: "#ffffff"
+  background_color_ios: "#262626"
