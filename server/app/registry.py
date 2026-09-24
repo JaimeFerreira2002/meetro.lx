@@ -50,6 +50,9 @@ class Registry:
     _segment: dict[tuple[str, str, str], float] = field(default_factory=dict)
     # destino -> line it belongs to (learned from the feed, for route planning)
     _destino_line: dict[str, str] = field(default_factory=dict)
+    # train -> (next_stop, first-seen ETA toward it). The approach window, so a
+    # dwelling train eases off the platform instead of freezing (see _place).
+    _approach: dict[str, tuple[str, float]] = field(default_factory=dict)
 
     def ingest_line(self, line: str, entries: list[dict], captured_at: float) -> None:
         # Invert platforms -> per-train (stop, eta) sightings.
@@ -73,6 +76,13 @@ class Registry:
             self.trains[train] = TrainObservation(line, rec["destino"], itinerary, captured_at)
             self._destino_line[rec["destino"]] = line
             self._learn(rec["destino"], itinerary)
+            # Remember the ETA first seen toward the current next stop; reset when
+            # the train advances to a new stop. Used as the approach window below.
+            if itinerary:
+                next_stop, eta0 = itinerary[0]
+                prior = self._approach.get(train)
+                if prior is None or prior[0] != next_stop:
+                    self._approach[train] = (next_stop, eta0)
 
     def _learn(self, destino: str, itinerary: list[tuple[str, float]]) -> None:
         pred = self._pred.setdefault(destino, {})
@@ -91,6 +101,7 @@ class Registry:
         dead = [t for t, o in self.trains.items() if now - o.captured_at > STALE_AFTER]
         for t in dead:
             del self.trains[t]
+            self._approach.pop(t, None)
 
     def arrivals_at(self, ref: Reference, stop_id: str, now: float | None = None, limit: int = 6) -> list[dict]:
         """Upcoming trains at a station, soonest first — for the station schedule view."""
@@ -186,7 +197,17 @@ class Registry:
 
         if prev is not None:
             seg_t = self._segment.get((obs.destino, prev_id, next_stop), settings.default_segment_seconds)
-            progress = max(0.0, min(1.0, 1.0 - eta_next / seg_t)) if seg_t > 0 else 0.0
+            # Interpolate over the *larger* of the learned segment time and the
+            # train's own first-seen ETA to this stop. A dwelling/held train is
+            # first seen with an ETA longer than the pure travel time, so this
+            # eases it off the platform (progress creeps from 0) instead of the
+            # old `1 - eta/seg_t` clamping to 0 and freezing, then lurching once
+            # eta finally drops below seg_t. A moving train (short first ETA)
+            # still uses seg_t, so nothing changes for the common case.
+            appr = self._approach.get(train_id)
+            eta0 = appr[1] if appr and appr[0] == next_stop else 0.0
+            window = max(seg_t, eta0)
+            progress = max(0.0, min(1.0, 1.0 - eta_next / window)) if window > 0 else 0.0
             geom = track.segment_point(
                 obs.line, prev_id, (prev.lat, prev.lon), next_stop, (nxt.lat, nxt.lon), progress
             ) if track else None
@@ -196,7 +217,7 @@ class Registry:
                 lat, lon = geo.interpolate(prev.lat, prev.lon, nxt.lat, nxt.lon, progress)
                 bearing = geo.bearing_deg(prev.lat, prev.lon, nxt.lat, nxt.lon)
                 dist = geo.haversine_m(prev.lat, prev.lon, nxt.lat, nxt.lon)
-            speed = dist / seg_t if seg_t > 0 else 0.0
+            speed = dist / window if window > 0 else 0.0
         else:
             # unknown predecessor (train near terminus / sparse topology): sit at next
             lat, lon, progress, speed = nxt.lat, nxt.lon, -1.0, 0.0
