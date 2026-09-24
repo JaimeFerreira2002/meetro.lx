@@ -10,7 +10,7 @@ import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'strings.dart';
-import 'stations_panel.dart' show fmtEta;
+import 'stations_panel.dart' show LiveEta;
 
 double _distanceM(LatLng a, LatLng b) {
   const r = 6371000.0;
@@ -51,6 +51,7 @@ class _NearbyPanelState extends State<NearbyPanel> {
   List<Station> _favStations = [];
   List<Station> _nearest = [];
   final Map<String, List<Arrival>?> _arrivals = {}; // null = loading
+  final Map<String, DateTime> _fetchedAt = {}; // when each stop's ETAs were fetched
   Timer? _timer;
 
   @override
@@ -93,7 +94,12 @@ class _NearbyPanelState extends State<NearbyPanel> {
   Future<void> _loadAll() async {
     for (final s in [..._favStations, ..._nearest]) {
       widget.api.arrivals(s.stopId).then((a) {
-        if (mounted) setState(() => _arrivals[s.stopId] = a);
+        if (mounted) {
+          setState(() {
+            _arrivals[s.stopId] = a;
+            _fetchedAt[s.stopId] = DateTime.now();
+          });
+        }
       });
     }
   }
@@ -216,7 +222,9 @@ class _NearbyPanelState extends State<NearbyPanel> {
                         child: Text('→ ${a.destinoName}',
                             style: const TextStyle(color: Colors.black87, fontSize: 13)),
                       ),
-                      Text(fmtEta(a.etaSeconds),
+                      LiveEta(
+                          seconds: a.etaSeconds,
+                          since: _fetchedAt[s.stopId] ?? DateTime.now(),
                           style: const TextStyle(
                               color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w800)),
                     ],

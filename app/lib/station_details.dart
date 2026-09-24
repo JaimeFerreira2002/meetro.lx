@@ -6,7 +6,7 @@ import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
-import 'stations_panel.dart' show fmtEta;
+import 'stations_panel.dart' show LiveEta;
 import 'strings.dart';
 
 class StationDetailsPanel extends StatefulWidget {
@@ -31,6 +31,7 @@ class StationDetailsPanel extends StatefulWidget {
 
 class _StationDetailsPanelState extends State<StationDetailsPanel> {
   List<Arrival>? _arrivals;
+  DateTime? _fetchedAt; // when _arrivals were fetched, for the live countdown
 
   @override
   void initState() {
@@ -49,7 +50,12 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
 
   Future<void> _load() async {
     final a = await widget.api.arrivals(widget.station.stopId);
-    if (mounted) setState(() => _arrivals = a);
+    if (mounted) {
+      setState(() {
+        _arrivals = a;
+        _fetchedAt = DateTime.now();
+      });
+    }
   }
 
   @override
@@ -161,7 +167,9 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
                   child: Text('→ ${a.destinoName}',
                       style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
                 ),
-                Text(fmtEta(a.etaSeconds),
+                LiveEta(
+                    seconds: a.etaSeconds,
+                    since: _fetchedAt ?? DateTime.now(),
                     style: const TextStyle(
                         color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w800)),
                 const SizedBox(width: 4),

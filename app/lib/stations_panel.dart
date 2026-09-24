@@ -1,5 +1,7 @@
 /// Expandable list of all stations; each row expands to show the next trains
 /// (fetched from GET /station/{id}/arrivals on demand).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +12,50 @@ import 'models.dart';
 import 'strings.dart';
 
 String fmtEta(double s) => '${(s / 60).floor()}:${(s % 60).round().toString().padLeft(2, '0')}';
+
+/// An ETA fetched at [since], re-aged to [now]; never negative.
+double agedEta(double seconds, DateTime since, DateTime now) {
+  final aged = seconds - now.difference(since).inSeconds;
+  return aged < 0 ? 0 : aged;
+}
+
+/// A countdown that stays live between fetches. Arrival ETAs are fetched
+/// on-demand (and only refreshed every ~20s), so a plain `fmtEta(eta)` sits
+/// frozen and then jumps. This re-ages the ETA from when it was fetched and
+/// ticks every second, so the number actually counts down on screen.
+class LiveEta extends StatefulWidget {
+  final double seconds; // ETA at fetch time
+  final DateTime since; // when the arrivals were fetched
+  final TextStyle? style;
+
+  const LiveEta({super.key, required this.seconds, required this.since, this.style});
+
+  @override
+  State<LiveEta> createState() => _LiveEtaState();
+}
+
+class _LiveEtaState extends State<LiveEta> {
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(fmtEta(agedEta(widget.seconds, widget.since, DateTime.now())), style: widget.style);
+  }
+}
 
 class StationsList extends StatefulWidget {
   final MetroApi api;
@@ -32,13 +78,19 @@ class StationsList extends StatefulWidget {
 class _StationsListState extends State<StationsList> {
   // stopId -> arrivals (null = loading)
   final Map<String, List<Arrival>?> _arrivals = {};
+  final Map<String, DateTime> _fetchedAt = {}; // when each stop's ETAs were fetched
 
   String? _lineFilter; // null = every line
 
   Future<void> _load(String stopId) async {
     setState(() => _arrivals[stopId] = null);
     final a = await widget.api.arrivals(stopId);
-    if (mounted) setState(() => _arrivals[stopId] = a);
+    if (mounted) {
+      setState(() {
+        _arrivals[stopId] = a;
+        _fetchedAt[stopId] = DateTime.now();
+      });
+    }
   }
 
   @override
@@ -218,7 +270,9 @@ class _StationsListState extends State<StationsList> {
                     child: Text('→ ${a.destinoName}',
                         style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w500)),
                   ),
-                  Text(fmtEta(a.etaSeconds),
+                  LiveEta(
+                      seconds: a.etaSeconds,
+                      since: _fetchedAt[stopId] ?? DateTime.now(),
                       style: const TextStyle(
                           color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(width: 4),
