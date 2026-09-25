@@ -77,15 +77,42 @@ class _RootState extends State<_Root> {
 
 enum MapStyle { cozy, minimal, light, dark }
 
+// Basemap tiles are build-time configurable. Default is keyless OpenStreetMap
+// (works with no signup; light-use policy — fine for beta). CARTO retired its
+// keyless basemaps, so for a nicer/production look pass a keyed provider:
+//   --dart-define=MAP_TILES_KEY=<MapTiler key>        (uses MapTiler styles)
+//   --dart-define=MAP_TILES_URL='https://…/{z}/{x}/{y}.png?key={key}'  (any provider)
+const _tilesKey = String.fromEnvironment('MAP_TILES_KEY');
+const _tilesUrlOverride = String.fromEnvironment('MAP_TILES_URL');
+
+/// Attribution string for the active tile source (OSM always required).
+String get tileAttribution {
+  if (_tilesUrlOverride.isNotEmpty) return '© OpenStreetMap';
+  if (_tilesKey.isNotEmpty) return '© MapTiler · © OpenStreetMap';
+  return '© OpenStreetMap contributors';
+}
+
 extension MapStyleX on MapStyle {
-  // All keyless: CARTO raster basemaps (© OpenStreetMap contributors © CARTO).
-  String get url => switch (this) {
-        MapStyle.cozy => 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        MapStyle.minimal =>
-          'https://basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png',
-        MapStyle.light => 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-        MapStyle.dark => 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  String get url {
+    // Explicit override wins — point it at any provider ({key} is substituted).
+    if (_tilesUrlOverride.isNotEmpty) {
+      return _tilesUrlOverride.replaceAll('{key}', _tilesKey);
+    }
+    // With a MapTiler key, map each style to a MapTiler raster style (256 px).
+    if (_tilesKey.isNotEmpty) {
+      final style = switch (this) {
+        MapStyle.cozy => 'streets-v2',
+        MapStyle.minimal => 'basic-v2',
+        MapStyle.light => 'dataviz-light',
+        MapStyle.dark => 'dataviz-dark',
       };
+      return 'https://api.maptiler.com/maps/$style/256/{z}/{x}/{y}.png?key=$_tilesKey';
+    }
+    // Keyless fallback: OpenStreetMap standard (one style; the switcher is a
+    // no-op until a keyed provider with multiple styles is configured).
+    return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  }
+
   String get label => switch (this) {
         MapStyle.cozy => tr('Cozy', 'Acolhedor'),
         MapStyle.minimal => tr('Minimal', 'Mínimo'),
@@ -712,7 +739,8 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
-          // Always-visible data credit + tile attribution (required by OSM/CARTO).
+          // Always-visible data credit + tile attribution (required by the
+          // basemap provider — OSM by default).
           // Sits above the nav bar so the centred nav pill can't cover it.
           Align(
             alignment: Alignment.bottomLeft,
@@ -742,7 +770,7 @@ class _MapScreenState extends State<MapScreen> {
                                 color: Colors.black.withOpacity(0.6))),
                       ],
                     ),
-                    Text('© OpenStreetMap · CARTO',
+                    Text(tileAttribution,
                         style: TextStyle(fontSize: 9, color: Colors.black.withOpacity(0.45))),
                   ],
                 ),
