@@ -574,15 +574,61 @@ class _MapScreenState extends State<MapScreen> {
       );
 
   Future<void> _goToMyLocation() async {
-    if (!await Geolocator.isLocationServiceEnabled()) return;
+    final serviceOn = await Geolocator.isLocationServiceEnabled();
+    if (!mounted) return;
+    if (!serviceOn) {
+      _locationHelp(
+        tr('Location Services are off — turn them on to see nearby stations.',
+            'Os Serviços de Localização estão desligados — ative-os para ver estações próximas.'),
+        openApp: false,
+      );
+      return;
+    }
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
-    final pos = await Geolocator.getCurrentPosition();
-    final ll = LatLng(pos.latitude, pos.longitude);
     if (!mounted) return;
-    setState(() => _userLocation = ll);
-    _mapController.move(ll, 15);
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      _locationHelp(
+        tr('meetro needs location access to show the stations closest to you. Enable it in Settings.',
+            'O meetro precisa de acesso à localização para mostrar as estações mais próximas. Ative nas Definições.'),
+        openApp: true,
+      );
+      return;
+    }
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      final ll = LatLng(pos.latitude, pos.longitude);
+      if (!mounted) return;
+      setState(() => _userLocation = ll);
+      _mapController.move(ll, 15);
+    } catch (_) {
+      if (mounted) {
+        _locationHelp(
+          tr("Couldn't get your location — try again.",
+              'Não foi possível obter a localização — tente novamente.'),
+          openApp: false,
+        );
+      }
+    }
+  }
+
+  /// Explain a location failure and offer the only real way out — the Settings
+  /// deep-link — instead of a tap that silently does nothing. `openApp` opens
+  /// this app's settings page (permission denied); otherwise the system
+  /// Location Services page (services off).
+  void _locationHelp(String message, {required bool openApp}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: tr('Settings', 'Definições'),
+          onPressed: () =>
+              openApp ? Geolocator.openAppSettings() : Geolocator.openLocationSettings(),
+        ),
+      ));
   }
 
   void _flyTo(LatLng target, Station? station) {
