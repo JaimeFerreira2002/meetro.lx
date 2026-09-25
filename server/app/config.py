@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # settled (#64). The Carris Metropolitana open API returns decoded GTFS-RT
     # vehicle positions as JSON, so no inference is needed — unlike Metro.
     carris_enabled: bool = False
-    carris_base_url: str = "https://api.carrismetropolitana.pt"
+    carris_base_url: str = "https://api.carrismetropolitana.pt/v2"
     carris_poll_interval_seconds: float = 10.0
 
 

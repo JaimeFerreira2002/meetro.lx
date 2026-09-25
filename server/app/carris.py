@@ -6,11 +6,13 @@ Metropolitana open API returns decoded GTFS-RT vehicle positions directly
 to the shared `TrainPosition` wire model with `mode`/`operator` set, and prune the
 ones that have gone stale.
 
-Off by default (`settings.carris_enabled`). The exact feed and tram coverage are
-still open (issue #64) — Carris Metropolitana is the regional bus network; the
-city tram feed (Carris) would slot in the same way with `mode="tram"`. The feed
-shape below follows the documented Carris Metropolitana `/vehicles` schema and
-should be confirmed against the live endpoint before enabling in production.
+Off by default (`settings.carris_enabled`). Tram coverage is still open (issue #64)
+— Carris Metropolitana is the regional bus network; the city tram feed (Carris)
+would slot in the same way with `mode="tram"`. The field mapping below was verified
+against the live `/v2/vehicles` feed (2026-09-25, ~820 vehicles): `id`, `lat`, `lon`,
+`bearing`, `speed`, `line_id`, `pattern_id`, `stop_id` are all present. The feed is
+region-wide (hundreds of vehicles), so a bounding-box / line filter is wanted before
+enabling.
 """
 
 from __future__ import annotations
@@ -93,7 +95,9 @@ class CarrisSource:
 
 class CarrisClient:
     def __init__(self) -> None:
-        self._http = httpx.AsyncClient(timeout=15.0)
+        # follow_redirects: the API 307s /vehicles -> /v2/vehicles, so tolerate a
+        # version bump even if base_url points at the old path.
+        self._http = httpx.AsyncClient(timeout=15.0, follow_redirects=True)
 
     async def vehicles(self) -> list:
         url = settings.carris_base_url.rstrip("/") + "/vehicles"
