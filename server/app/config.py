@@ -35,5 +35,12 @@ class Settings(BaseSettings):
     # wait for the next train on the new line.
     transfer_penalty_seconds: float = 90.0
 
+    # Carris (Lisbon buses/trams). Off by default until the feed + terms are
+    # settled (#64). The Carris Metropolitana open API returns decoded GTFS-RT
+    # vehicle positions as JSON, so no inference is needed — unlike Metro.
+    carris_enabled: bool = False
+    carris_base_url: str = "https://api.carrismetropolitana.pt"
+    carris_poll_interval_seconds: float = 10.0
+
 
 settings = Settings()

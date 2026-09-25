@@ -201,3 +201,15 @@ still-warming) topology.
 `/` serves the debug map from `server/web/` — a single Leaflet page, no build step,
 the fastest way to see whether the server is sane. It's mounted only if the directory
 exists, and **it's public in production**. See [SECURITY.md](SECURITY.md).
+
+## Carris (optional, off by default)
+
+[`carris.py`](../server/app/carris.py) adds Lisbon **buses/trams** alongside Metro.
+Unlike Metro's feed, the Carris Metropolitana open API returns **decoded GTFS-RT
+vehicle positions** directly (lat/lon/bearing/speed) — so there's no inference: a
+parallel poller fetches `/vehicles`, `parse_vehicles` maps each to the shared
+`TrainPosition` (with `mode`/`operator` set), and a `CarrisSource` holds them with
+staleness pruning. `/trains` and `/stream` merge those in. It's gated behind
+`ML_CARRIS_ENABLED` (default off), so production is unchanged until it's turned on;
+the exact feed, tram coverage and terms are still open in
+[#64](https://github.com/JaimeFerreira2002/meetro.lx/issues/64).

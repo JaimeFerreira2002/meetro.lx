@@ -56,3 +56,5 @@ class TrainPosition(BaseModel):
     speed_mps: float
     depth_m: float              # approximate; underground offset for AR
     progress: float             # 0..1 along current segment (−1 if unknown)
+    mode: str = "metro"         # metro | bus | tram — lets the client style it
+    operator: str = "Metro"     # Metro | Carris

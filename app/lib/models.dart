@@ -200,6 +200,8 @@ class TrainPosition {
   final LatLng pos;
   final double bearing;
   final double speedMps;
+  final String mode;      // metro | bus | tram
+  final String operator;  // Metro | Carris
 
   TrainPosition({
     required this.trainId,
@@ -210,7 +212,11 @@ class TrainPosition {
     required this.pos,
     required this.bearing,
     required this.speedMps,
+    this.mode = 'metro',
+    this.operator = 'Metro',
   });
+
+  bool get isMetro => mode == 'metro';
 
   factory TrainPosition.fromJson(Map<String, dynamic> j) => TrainPosition(
         trainId: j['train_id'] as String,
@@ -221,5 +227,7 @@ class TrainPosition {
         pos: LatLng((j['lat'] as num).toDouble(), (j['lon'] as num).toDouble()),
         bearing: (j['bearing'] as num).toDouble(),
         speedMps: (j['speed_mps'] as num).toDouble(),
+        mode: j['mode'] as String? ?? 'metro',
+        operator: j['operator'] as String? ?? 'Metro',
       );
 }
