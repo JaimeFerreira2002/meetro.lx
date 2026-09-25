@@ -27,6 +27,15 @@ String opensAt() => tr('Opens at 06:30', 'Abre às 06:30');
 /// "Metro is closed · opens 06:30" — one line, for tight spots.
 String closedLine() => tr('Metro closed · opens 06:30', 'Metro fechado · abre às 06:30');
 
+/// The message for an empty arrivals list: offline vs. closed vs. a genuinely
+/// quiet platform — so "no trains" never reads as "the app is broken". Shared by
+/// Nearby, Stations and station details; mirrored in the widget (MetroWidget.swift).
+String noTrainsLabel(bool connected) {
+  if (!connected) return tr("Can't reach the server", 'Sem ligação ao servidor');
+  if (metroIsClosed()) return closedLine();
+  return tr('No upcoming trains', 'Sem próximos comboios');
+}
+
 String scheduleLabel() => tr('Service hours', 'Horário');
 
 String everyDay() => tr('every day', 'todos os dias');

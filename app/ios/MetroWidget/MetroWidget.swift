@@ -49,6 +49,19 @@ func lineColor(_ line: String) -> Color {
     }
 }
 
+// Mirror of app/lib/schedule.dart: Metro runs 06:30–01:00, judged against the
+// device clock. Closed between the last train and the first (01:00–06:29), so an
+// empty board reads as "closed", not "broken".
+private func metroClosedNow() -> Bool {
+    let c = Calendar.current.dateComponents([.hour, .minute], from: Date())
+    let m = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+    return m >= 60 && m < 390  // 01:00 .. 06:30
+}
+
+private func emptyArrivalsMessage() -> String {
+    metroClosedNow() ? "Metro closed · opens 06:30" : "No upcoming trains"
+}
+
 // MARK: - Location
 
 private final class LocationProvider: NSObject, CLLocationManagerDelegate {
@@ -183,7 +196,7 @@ struct Provider: TimelineProvider {
                         stationName: nearest.name,
                         distanceMeters: distance(nearest, location),
                         arrivals: Array(items),
-                        message: items.isEmpty ? "No upcoming trains" : nil
+                        message: items.isEmpty ? emptyArrivalsMessage() : nil
                     ))
                 } catch {
                     completion(.failure("Can't reach the server"))

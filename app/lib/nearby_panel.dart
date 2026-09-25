@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'schedule.dart';
 import 'strings.dart';
 import 'stations_panel.dart' show LiveEta;
 
@@ -198,10 +199,7 @@ class _NearbyPanelState extends State<NearbyPanel> {
                     SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
               )
             else if (arrivals.isEmpty)
-              Text(
-                  widget.api.connected.value
-                      ? tr('No upcoming trains', 'Sem próximos comboios')
-                      : tr("Can't reach the server", 'Sem ligação ao servidor'),
+              Text(noTrainsLabel(widget.api.connected.value),
                   style: const TextStyle(color: Colors.black38, fontSize: 12))
             else
               for (final a in arrivals.take(3))

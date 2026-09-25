@@ -9,6 +9,7 @@ import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'schedule.dart';
 import 'strings.dart';
 
 String fmtEta(double s) => '${(s / 60).floor()}:${(s % 60).round().toString().padLeft(2, '0')}';
@@ -242,8 +243,7 @@ class _StationsListState extends State<StationsList> {
         padding: const EdgeInsets.only(bottom: 12),
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text(
-              widget.api.connected.value ? tr('No upcoming trains', 'Sem próximos comboios') : tr("Can't reach the server", 'Sem ligação ao servidor'),
+          child: Text(noTrainsLabel(widget.api.connected.value),
               style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w500)),
         ),
       );
