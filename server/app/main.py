@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
+from .carris import CarrisClient, CarrisSource, run_carris_poller
 from .metro_client import MetroClient
 from .poller import run_poller
 from .reference import Reference
@@ -40,14 +41,28 @@ async def lifespan(app: FastAPI):
     log.info("track geometry: %d directional polylines", sum(len(v) for v in track.by_line.values()))
     task = asyncio.create_task(run_poller(client, ref, registry, stop))
 
+    # Carris (buses/trams) is optional and off by default — its positions come
+    # from a separate live feed and merge into /trains and /stream.
+    carris_client = carris_source = carris_task = None
+    if settings.carris_enabled:
+        carris_client = CarrisClient()
+        carris_source = CarrisSource()
+        carris_task = asyncio.create_task(run_carris_poller(carris_client, carris_source, stop))
+        log.info("carris enabled: polling %s", settings.carris_base_url)
+
     app.state.client, app.state.ref, app.state.registry = client, ref, registry
     app.state.track = track
+    app.state.carris = carris_source
     try:
         yield
     finally:
         stop.set()
         task.cancel()
+        if carris_task is not None:
+            carris_task.cancel()
         await client.aclose()
+        if carris_client is not None:
+            await carris_client.aclose()
 
 
 app = FastAPI(title="Metro Lisboa AR — positions", lifespan=lifespan)
@@ -56,10 +71,12 @@ app = FastAPI(title="Metro Lisboa AR — positions", lifespan=lifespan)
 @app.get("/health")
 async def health():
     reg: Registry = app.state.registry
+    carris = app.state.carris
     return {
         "status": "ok",
         "stations": len(app.state.ref.stations),
         "trains_tracked": len(reg.trains),
+        "carris_vehicles": len(carris.snapshot()) if carris is not None else 0,
         "lines": {k: v.status for k, v in reg.line_status.items()},
     }
 
@@ -117,19 +134,25 @@ async def track_geojson():
 @app.get("/trains")
 async def trains():
     reg: Registry = app.state.registry
-    return [t.model_dump() for t in reg.snapshot(app.state.ref, app.state.track)]
+    out = reg.snapshot(app.state.ref, app.state.track)
+    if app.state.carris is not None:
+        out = out + app.state.carris.snapshot()
+    return [t.model_dump() for t in out]
 
 
 @app.get("/stream")
 async def stream():
     reg: Registry = app.state.registry
     ref: Reference = app.state.ref
-
     track = app.state.track
+    carris: CarrisSource | None = app.state.carris
 
     async def gen():
         while True:
-            payload = [t.model_dump() for t in reg.snapshot(ref, track)]
+            out = reg.snapshot(ref, track)
+            if carris is not None:
+                out = out + carris.snapshot()
+            payload = [t.model_dump() for t in out]
             yield f"data: {json.dumps(payload)}\n\n"
             await asyncio.sleep(settings.stream_interval_seconds)
 
