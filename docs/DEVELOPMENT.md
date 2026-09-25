@@ -95,7 +95,9 @@ No App Store, no TestFlight — a free Apple ID signs a build straight onto your
 
 ```bash
 cd app
-flutter run --release -d <device-id> --dart-define=API_BASE=https://metro-lisboa-ar.fly.dev
+flutter run --release -d <device-id> \
+  --dart-define=API_BASE=https://metro-lisboa-ar.fly.dev \
+  --dart-define=MAP_TILES_KEY=<your-maptiler-key>
 ```
 
 5. On the phone: **Settings → General → VPN & Device Management → Developer App → Trust**.
@@ -118,6 +120,20 @@ xcrun devicectl device install app --device <device-id> build/ios/iphoneos/Runne
 
 `flutter install` won't do here — it doesn't accept `--dart-define`, and its
 `--use-application-binary` wants an IPA.
+
+## Map tiles
+
+Production uses **MapTiler**. Get a free key at [maptiler.com](https://www.maptiler.com/),
+pass it as `--dart-define=MAP_TILES_KEY=<key>`, and **restrict the key to the app's
+bundle id** in the MapTiler dashboard — it ships inside the client, so a restricted key
+is the protection. The four map styles (cozy/minimal/light/dark) map to MapTiler raster
+styles.
+
+Without a key the map falls back to plain **OpenStreetMap** standard tiles — fine for
+dev, but OSM's tile policy is light-use, so don't ship a public build on it. Any other
+provider works via `--dart-define=MAP_TILES_URL='https://…/{z}/{x}/{y}.png?key={key}'`
+(`{key}` is substituted from `MAP_TILES_KEY`). CARTO's old keyless basemaps were
+retired — that's why a key is now needed. See [#24](https://github.com/JaimeFerreira2002/meetro.lx/issues/24).
 
 ## Deploying the server
 

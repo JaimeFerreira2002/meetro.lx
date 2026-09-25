@@ -77,11 +77,11 @@ class _RootState extends State<_Root> {
 
 enum MapStyle { cozy, minimal, light, dark }
 
-// Basemap tiles are build-time configurable. Default is keyless OpenStreetMap
-// (works with no signup; light-use policy — fine for beta). CARTO retired its
-// keyless basemaps, so for a nicer/production look pass a keyed provider:
-//   --dart-define=MAP_TILES_KEY=<MapTiler key>        (uses MapTiler styles)
-//   --dart-define=MAP_TILES_URL='https://…/{z}/{x}/{y}.png?key={key}'  (any provider)
+// Basemap tiles are build-time configurable:
+//   Production: MapTiler — pass --dart-define=MAP_TILES_KEY=<key>.
+//   Dev / no key: keyless OpenStreetMap standard tiles (light-use policy).
+//   Any other provider: --dart-define=MAP_TILES_URL='https://…/{z}/{x}/{y}.png?key={key}'.
+// (CARTO retired its keyless basemaps, which is why a key is needed for the good look.)
 const _tilesKey = String.fromEnvironment('MAP_TILES_KEY');
 const _tilesUrlOverride = String.fromEnvironment('MAP_TILES_URL');
 
