@@ -64,7 +64,9 @@ time, defaulting to `http://localhost:8000`. On a phone, `localhost` is the phon
 so a build without the define produces an app that can never reach anything:
 
 ```bash
-flutter build ios --release --dart-define=API_BASE=https://metro-lisboa-ar.fly.dev
+flutter build ios --release \
+  --dart-define=API_BASE=https://metro-lisboa-ar.fly.dev \
+  --dart-define=MAP_TILES_KEY=<your-maptiler-key>
 ```
 
 There is no runtime setting for this. Forgetting it is the single easiest way to ship
@@ -114,7 +116,8 @@ that needs a line colour reads `lineColors`.
 A `Stack`: `FlutterMap` at the bottom, then overlays (search, count chip, buttons,
 Metro credit), then the panel, then the nav bar.
 
-**Map layers**, bottom to top: tiles (CARTO raster, style-switchable) → track polylines
+**Map layers**, bottom to top: tiles (MapTiler in production via `MAP_TILES_KEY`, OSM
+without a key — see [DEVELOPMENT.md](DEVELOPMENT.md#map-tiles); style-switchable) → track polylines
 → station dots → train markers → user location. Station dots are hidden below zoom 13
 (`_stationZoom`); at city scale, 50 labels is noise. `_onMapMoved` only calls
 `setState` when a move actually *crosses* that threshold — otherwise every pan would
