@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     carris_enabled: bool = False
     carris_base_url: str = "https://api.carrismetropolitana.pt/v2"
     carris_poll_interval_seconds: float = 10.0
+    # Keep only Carris vehicles within this many km of the Metro network — the
+    # raw feed is region-wide (hundreds of vehicles); we want the ones near the
+    # metro map. The box is derived from the station catalog at startup.
+    carris_bbox_pad_km: float = 3.0
 
 
 settings = Settings()

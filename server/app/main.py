@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
-from .carris import CarrisClient, CarrisSource, run_carris_poller
+from .carris import CarrisClient, CarrisSource, bbox_from_points, run_carris_poller
 from .metro_client import MetroClient
 from .poller import run_poller
 from .reference import Reference
@@ -47,8 +47,13 @@ async def lifespan(app: FastAPI):
     if settings.carris_enabled:
         carris_client = CarrisClient()
         carris_source = CarrisSource()
-        carris_task = asyncio.create_task(run_carris_poller(carris_client, carris_source, stop))
-        log.info("carris enabled: polling %s", settings.carris_base_url)
+        carris_bbox = bbox_from_points(
+            [(s.lat, s.lon) for s in ref.stations.values()], settings.carris_bbox_pad_km
+        )
+        carris_task = asyncio.create_task(
+            run_carris_poller(carris_client, carris_source, stop, carris_bbox)
+        )
+        log.info("carris enabled: polling %s within %s", settings.carris_base_url, carris_bbox)
 
     app.state.client, app.state.ref, app.state.registry = client, ref, registry
     app.state.track = track

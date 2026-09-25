@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 
@@ -28,6 +29,9 @@ from .config import settings
 from .models import TrainPosition
 
 log = logging.getLogger("carris")
+
+# (lat_min, lat_max, lon_min, lon_max)
+BBox = tuple[float, float, float, float]
 
 # Positions arrive roughly every 10 s; drop a vehicle unseen for longer so the
 # map doesn't show a bus that stopped reporting.
@@ -65,12 +69,32 @@ def parse_vehicle(raw: dict) -> TrainPosition | None:
     )
 
 
-def parse_vehicles(raw) -> list[TrainPosition]:
+def _in_bbox(lat: float, lon: float, bbox: BBox) -> bool:
+    lat_min, lat_max, lon_min, lon_max = bbox
+    return lat_min <= lat <= lat_max and lon_min <= lon <= lon_max
+
+
+def bbox_from_points(points, pad_km: float) -> BBox | None:
+    """Bounding box around [points] ((lat, lon) pairs), padded by [pad_km].
+    None when there are no points. Used to keep only the Carris vehicles near the
+    Metro network — the raw feed is region-wide (hundreds of vehicles)."""
+    lats = [p[0] for p in points]
+    lons = [p[1] for p in points]
+    if not lats:
+        return None
+    lat_mid = (min(lats) + max(lats)) / 2.0
+    pad_lat = pad_km / 111.0
+    pad_lon = pad_km / (111.0 * max(0.1, math.cos(math.radians(lat_mid))))
+    return (min(lats) - pad_lat, max(lats) + pad_lat, min(lons) - pad_lon, max(lons) + pad_lon)
+
+
+def parse_vehicles(raw, bbox: BBox | None = None) -> list[TrainPosition]:
+    """Parse a `/vehicles` payload; when [bbox] is given, keep only vehicles inside it."""
     out: list[TrainPosition] = []
     for entry in raw or []:
         if isinstance(entry, dict):
             v = parse_vehicle(entry)
-            if v is not None:
+            if v is not None and (bbox is None or _in_bbox(v.lat, v.lon, bbox)):
                 out.append(v)
     return out
 
@@ -110,12 +134,15 @@ class CarrisClient:
         await self._http.aclose()
 
 
-async def run_carris_poller(client: CarrisClient, source: CarrisSource, stop: asyncio.Event) -> None:
-    """Poll Carris vehicle positions into [source] until [stop] is set."""
+async def run_carris_poller(
+    client: CarrisClient, source: CarrisSource, stop: asyncio.Event, bbox: BBox | None = None
+) -> None:
+    """Poll Carris vehicle positions into [source] until [stop] is set, keeping
+    only vehicles inside [bbox] when one is given."""
     while not stop.is_set():
         started = time.time()
         try:
-            source.update(parse_vehicles(await client.vehicles()))
+            source.update(parse_vehicles(await client.vehicles(), bbox))
             log.info("carris poll: %d vehicles", len(source.vehicles))
         except Exception as exc:  # noqa: BLE001 — keep the loop alive
             log.warning("carris poll failed: %s", exc)
