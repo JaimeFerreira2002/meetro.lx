@@ -6,6 +6,12 @@
 app = 'metro-lisboa-ar'
 primary_region = 'cdg'
 
+# Non-secret feature flags live here (version-controlled). Real secrets
+# (ML_BASIC_AUTH etc.) stay in `fly secrets`. Flip to "true" and redeploy to
+# overlay Carris buses/trams on the map (#64).
+[env]
+  ML_CARRIS_ENABLED = 'false'
+
 [build]
   dockerfile = 'Dockerfile'
 
