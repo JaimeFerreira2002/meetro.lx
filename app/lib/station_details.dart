@@ -6,6 +6,7 @@ import 'line_logo.dart';
 import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
+import 'schedule.dart';
 import 'stations_panel.dart' show LiveEta;
 import 'strings.dart';
 
@@ -143,8 +144,7 @@ class _StationDetailsPanelState extends State<StationDetailsPanel> {
       );
     }
     if (arrivals.isEmpty) {
-      return Text(
-          widget.api.connected.value ? tr('No upcoming trains', 'Sem próximos comboios') : tr("Can't reach the server", 'Sem ligação ao servidor'),
+      return Text(noTrainsLabel(widget.api.connected.value),
           style: const TextStyle(color: Colors.black45, fontWeight: FontWeight.w500));
     }
     return Column(
