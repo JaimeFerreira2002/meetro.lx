@@ -17,6 +17,10 @@ const lineColors = <String, int>{
 /// Favourite-star gold (matches the yellow line). ARGB int, like [lineColors].
 const starColor = 0xFFF7A800;
 
+/// Carris (buses/trams) accent — slate, deliberately outside the four Metro
+/// line colours so surface transit reads as a different system on the map.
+const carrisColor = 0xFF546E7A;
+
 /// Display order for the four lines.
 const lineOrder = <String>['Azul', 'Amarela', 'Verde', 'Vermelha'];
 

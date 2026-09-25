@@ -475,6 +475,11 @@ class _MapScreenState extends State<MapScreen> {
 
   int _countFor(String line) => _trains.where((t) => t.line == line).length;
 
+  /// Metro trains only. Carris vehicles ride in the same `_trains` feed (when
+  /// the backend has Carris enabled) but are shown just on the map for now, so
+  /// the "trains" count and the Trains list stay Metro-only.
+  Iterable<TrainPosition> get _metroTrains => _trains.where((t) => t.isMetro);
+
   // ---- map zoom ----
 
   static const _initialZoom = 12.0;
@@ -699,7 +704,9 @@ class _MapScreenState extends State<MapScreen> {
               // once you're zoomed in enough for them to be useful
               if (_showStations)
                 MarkerLayer(markers: _stations.map(_stationMarker).toList()),
-              MarkerLayer(markers: _trains.map(_trainMarker).toList()),
+              MarkerLayer(markers: [
+                for (final t in _trains) t.isMetro ? _trainMarker(t) : _carrisMarker(t),
+              ]),
               if (_userLocation != null)
                 MarkerLayer(markers: [_userMarker(_userLocation!)]),
             ],
@@ -803,7 +810,7 @@ class _MapScreenState extends State<MapScreen> {
                                 Icon(Icons.directions_subway_rounded,
                                     color: _online ? _ink : _inkSoft, size: 20),
                                 const SizedBox(width: 8),
-                                Text('${_trains.length}',
+                                Text('${_metroTrains.length}',
                                     style: TextStyle(
                                         color: _online ? _ink : _inkSoft,
                                         fontSize: 24,
@@ -967,7 +974,7 @@ class _MapScreenState extends State<MapScreen> {
                     favorites: _favorites,
                     onToggleFavorite: _toggleFavorite,
                   )
-                : TrainsList(trains: _trains, onSelect: _followTrain),
+                : TrainsList(trains: _metroTrains.toList(), onSelect: _followTrain),
           ),
         ],
       );
@@ -1156,7 +1163,7 @@ class _MapScreenState extends State<MapScreen> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('${_trains.length}',
+            Text('${_metroTrains.length}',
                 style: TextStyle(
                     color: _online ? _ink : _inkSoft,
                     fontSize: 44,
@@ -1643,6 +1650,30 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Carris (bus/tram) vehicle — a slate bus pin, deliberately distinct from the
+  /// Metro train markers (line-coloured ring + direction arrow) so the two
+  /// systems read apart. Non-interactive for now; tap-to-follow can come later.
+  Marker _carrisMarker(TrainPosition t) {
+    const color = Color(carrisColor);
+    return Marker(
+      point: t.pos,
+      width: 24,
+      height: 24,
+      child: Tooltip(
+        message: t.line.isEmpty ? 'Carris' : 'Carris ${t.line}',
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
+          ),
+          child: const Icon(Icons.directions_bus_rounded, color: Colors.white, size: 13),
         ),
       ),
     );
