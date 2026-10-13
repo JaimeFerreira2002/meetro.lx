@@ -7,6 +7,7 @@ talks to Metro, only to our server. See [ARCHITECTURE.md](ARCHITECTURE.md) for w
 |---|---|---|
 | `main.dart` | ~1,300 | **Everything visual.** Map, overlays, panels, nav, settings |
 | `route_planner.dart` | ~420 | Fastest-route planner screen (calls `GET /route`) |
+| `animated_trains.dart` | ~190 | Tweens train markers between snapshots (own ticker) |
 | `active_route.dart` | ~85 | A started route + its progress, persisted locally |
 | `route_progress_card.dart` | ~185 | The pinned "you're on a route" card |
 | `live_activity.dart` | ~65 | Bridge to the iOS Live Activity (no-ops until wired) |
@@ -124,9 +125,16 @@ without a key — see [DEVELOPMENT.md](DEVELOPMENT.md#map-tiles); style-switchab
 rebuild the tree. It defers via `addPostFrameCallback`, because flutter_map fires
 position callbacks mid-build and setState there throws.
 
-**Trains** are re-rendered from each snapshot. There's no client-side animation — the
-server's 1.5 s cadence and its dead-reckoned positions are what make motion look
-continuous. If the map ever looks jumpy, the fix is server-side.
+**Trains** move through a hybrid of server and client work. The server dead-reckons
+positions forward in time and streams a fresh snapshot roughly every 1.5 s; the client
+**tweens between those snapshots** so the ~1.5 s steps read as continuous motion.
+`animated_trains.dart` owns that tween: it matches trains by id across snapshots,
+interpolates lat/lon and bearing over the measured snapshot interval, and runs its own
+ticker so only the marker layer repaints — the screen still rebuilds once per snapshot,
+not once per frame. It snaps (no tween) on discontinuities (> ~400 m jumps, i.e. a
+reappearance or line change) and keeps the **followed** train pinned to its exact
+snapshot position, since the camera tracks it. If motion still looks wrong, suspect the
+server's projection first (`track.py`), then this layer.
 
 **Following a train** sets `_followTrainId`; `_onTrains` then re-centres the camera on
 each snapshot as long as that train is still in the feed.

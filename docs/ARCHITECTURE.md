@@ -112,6 +112,13 @@ This is why it never jumps backwards: within a poll cycle, motion is a smooth fu
 of elapsed time. It's dead reckoning, and it's the difference between a map that
 crawls in 12-second lurches and one that flows.
 
+The server gets positions right every 1.5 s; the **client** fills the gap *between*
+those frames. `animated_trains.dart` tweens each marker from where it was drawn to the
+newly received position over the snapshot interval, so even the 1.5 s cadence reads as
+continuous rather than stepped. The division of labour is deliberate: the server owns
+*where* a train is (it alone can dead-reckon against `captured_at`), the client owns
+only the cosmetic in-between. See [APP.md](APP.md#maindart--the-screen).
+
 Trains unseen for **90 seconds** (`STALE_AFTER`) are pruned. That's also what empties
 the map after the last train at 01:00 — the feed goes quiet, and 90 seconds later the
 registry is empty.

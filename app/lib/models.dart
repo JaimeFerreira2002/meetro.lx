@@ -222,6 +222,22 @@ class TrainPosition {
 
   bool get isMetro => mode == 'metro';
 
+  /// A copy with a tweened position/bearing for client-side animation
+  /// (see animated_trains.dart). Everything else is carried over unchanged, so
+  /// the marker's tooltip, line colour and followed-state stay intact.
+  TrainPosition copyWith({LatLng? pos, double? bearing}) => TrainPosition(
+        trainId: trainId,
+        line: line,
+        destinoName: destinoName,
+        nextStopName: nextStopName,
+        etaSeconds: etaSeconds,
+        pos: pos ?? this.pos,
+        bearing: bearing ?? this.bearing,
+        speedMps: speedMps,
+        mode: mode,
+        operator: operator,
+      );
+
   factory TrainPosition.fromJson(Map<String, dynamic> j) => TrainPosition(
         trainId: j['train_id'] as String,
         line: j['line'] as String,
