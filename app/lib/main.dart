@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'animated_trains.dart';
 import 'legal.dart';
 import 'line_logo.dart';
 import 'line_stripe.dart';
@@ -731,9 +732,15 @@ class _MapScreenState extends State<MapScreen> {
               // once you're zoomed in enough for them to be useful
               if (_showStations)
                 MarkerLayer(markers: _stations.map(_stationMarker).toList()),
-              MarkerLayer(markers: [
-                for (final t in _trains) t.isMetro ? _trainMarker(t) : _carrisMarker(t),
-              ]),
+              // Trains tween between the ~1.5 s server snapshots so motion
+              // reads as continuous. This layer runs its own ticker and
+              // repaints only itself — the screen still rebuilds once per
+              // snapshot, not per frame.
+              AnimatedTrains(
+                trains: _trains,
+                followId: _followTrainId,
+                builder: (t) => t.isMetro ? _trainMarker(t) : _carrisMarker(t),
+              ),
               if (_userLocation != null)
                 MarkerLayer(markers: [_userMarker(_userLocation!)]),
             ],
